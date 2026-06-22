@@ -1,0 +1,97 @@
+import { Mochi, apiError, error, json, type MochiRouteValue } from 'mochi-framework';
+import { dockerAvailable } from './lib/docker.server.ts';
+import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
+import { browse } from './lib/picker.server.ts';
+import {
+  createInstance,
+  deleteInstance,
+  listInstances,
+  startInstance,
+  stopInstance,
+  subscribeLogs,
+} from './lib/instances.server.ts';
+import { getInstance } from './lib/db.server.ts';
+
+async function preflight() {
+  const [docker, cli] = await Promise.all([dockerAvailable(), devcontainerCliAvailable()]);
+  return { docker, cli };
+}
+
+export const routes: Record<string, MochiRouteValue> = {
+  '/': Mochi.page('./src/pages/Dashboard.svelte', {
+    serverProps: async () => ({
+      instances: await listInstances(),
+      preflight: await preflight(),
+    }),
+  }),
+
+  '/instances/:id': Mochi.page('./src/pages/Instance.svelte', {
+    serverProps: (_req, params) => {
+      const instance = params.id ? getInstance(params.id) : null;
+      if (!instance) error(404, 'Instance not found');
+      return { instance };
+    },
+  }),
+
+  // Filesystem browser for picking a project folder.
+  '/api/browse': Mochi.api(async ({ url }) => {
+    try {
+      return json(await browse(url.searchParams.get('path') ?? undefined));
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  '/api/instances': Mochi.api(async ({ method, request }) => {
+    if (method === 'GET') return json({ instances: await listInstances() });
+    if (method === 'POST') {
+      const body = (await request.json().catch(() => null)) as
+        | { sourcePath?: string; name?: string }
+        | null;
+      if (!body?.sourcePath) return apiError(400, 'sourcePath is required');
+      try {
+        const instance = await createInstance(body.sourcePath, body.name);
+        return json({ instance }, { status: 201 });
+      } catch (err) {
+        return apiError(400, (err as Error).message);
+      }
+    }
+    return apiError(405, 'Method Not Allowed');
+  }),
+
+  '/api/instances/:id/start': Mochi.api(async ({ method, params }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    try {
+      return json({ instance: await startInstance(params.id!) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  '/api/instances/:id/stop': Mochi.api(async ({ method, params }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    try {
+      return json({ instance: await stopInstance(params.id!) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  '/api/instances/:id/delete': Mochi.api(async ({ method, params }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    await deleteInstance(params.id!);
+    return json({ ok: true });
+  }),
+
+  // Live boot/build log stream for one instance.
+  '/api/instances/:id/logs': Mochi.sse((stream, req) => {
+    const id = new URL(req.url).pathname.split('/')[3];
+    if (!id) {
+      stream.close();
+      return;
+    }
+    // JSON-encode each chunk so embedded newlines don't break SSE framing.
+    const unsubscribe = subscribeLogs(id, (chunk) => stream.send(JSON.stringify(chunk)));
+    stream.onClose(unsubscribe);
+  }),
+};
