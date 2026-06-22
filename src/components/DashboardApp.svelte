@@ -1,6 +1,11 @@
 <script lang="ts">
+  import boring from 'boring-avatars-vanilla';
   import { ideUrl, type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
+
+  // A unique SVG avatar per instance, seeded by its id so it stays stable.
+  const avatar = (instance: Instance) =>
+    boring({ name: instance.id, variant: 'beam', size: 40 });
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -87,6 +92,13 @@
     </div>
   {/if}
 
+  {#if !preflight.claudeAuth}
+    <div class="banner warn">
+      <strong>Claude Code not authorized.</strong>
+      <span>No Claude Code credentials found on this computer, so new instances won't have Claude auth. Run <code>claude</code> and sign in, then create instances.</span>
+    </div>
+  {/if}
+
   {#if actionError}
     <div class="banner error"><strong>Error.</strong> <span>{actionError}</span></div>
   {/if}
@@ -106,6 +118,7 @@
       {#each instances as instance (instance.id)}
         <li class="card">
           <div class="card-head">
+            <span class="avatar">{@html avatar(instance)}</span>
             <div class="name">{instance.name}</div>
             <span class="status {instance.status}">{statusLabel[instance.status]}</span>
           </div>
@@ -171,6 +184,17 @@
     background: var(--red-100);
     color: var(--red-600);
   }
+  .banner.warn {
+    background: var(--amber-100);
+    color: var(--amber-600);
+  }
+  .banner.warn code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: rgba(154, 106, 30, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
   .empty {
     text-align: center;
     padding: 80px 20px;
@@ -205,7 +229,20 @@
     justify-content: space-between;
     gap: 10px;
   }
+  .avatar {
+    display: inline-flex;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .avatar :global(svg) {
+    display: block;
+  }
   .name {
+    flex: 1;
+    min-width: 0;
     font-weight: 600;
     font-size: 16px;
     overflow: hidden;

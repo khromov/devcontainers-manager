@@ -1,6 +1,7 @@
 import { Mochi, apiError, error, json, type MochiRouteValue } from 'mochi-framework';
 import { dockerAvailable } from './lib/docker.server.ts';
 import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
+import { claudeAuthAvailable } from './lib/claude.server.ts';
 import { browse } from './lib/picker.server.ts';
 import {
   createInstance,
@@ -14,8 +15,12 @@ import {
 import { getInstance } from './lib/db.server.ts';
 
 async function preflight() {
-  const [docker, cli] = await Promise.all([dockerAvailable(), devcontainerCliAvailable()]);
-  return { docker, cli };
+  const [docker, cli, claudeAuth] = await Promise.all([
+    dockerAvailable(),
+    devcontainerCliAvailable(),
+    claudeAuthAvailable(),
+  ]);
+  return { docker, cli, claudeAuth };
 }
 
 export const routes: Record<string, MochiRouteValue> = {
@@ -43,7 +48,14 @@ export const routes: Record<string, MochiRouteValue> = {
 
   // Live instance list over SSE — first message is the full current state.
   '/api/instances/stream': Mochi.sse((stream) => {
-    const unsubscribe = subscribeInstances((list) => stream.send(JSON.stringify(list)));
+    const send = (list: unknown) => {
+      try {
+        stream.send(JSON.stringify(list));
+      } catch {
+        /* stream closed between broadcast and send */
+      }
+    };
+    const unsubscribe = subscribeInstances(send);
     stream.onClose(unsubscribe);
   }),
 
@@ -96,7 +108,13 @@ export const routes: Record<string, MochiRouteValue> = {
       return;
     }
     // JSON-encode each chunk so embedded newlines don't break SSE framing.
-    const unsubscribe = subscribeLogs(id, (chunk) => stream.send(JSON.stringify(chunk)));
+    const unsubscribe = subscribeLogs(id, (chunk) => {
+      try {
+        stream.send(JSON.stringify(chunk));
+      } catch {
+        /* stream closed */
+      }
+    });
     stream.onClose(unsubscribe);
   }),
 };

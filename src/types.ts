@@ -15,6 +15,7 @@ export interface Instance {
 export interface Preflight {
   docker: boolean;
   cli: boolean;
+  claudeAuth: boolean;
 }
 
 /** Local URL for an instance's code-server, opening the project folder when known. */

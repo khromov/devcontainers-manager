@@ -13,6 +13,7 @@ import {
 } from './db.server.ts';
 import { isRunning, removeContainer, startContainer, stopContainer } from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
+import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
 
 /** Live, in-memory boot state for an instance (logs + SSE subscribers). */
 interface LiveState {
@@ -36,7 +37,14 @@ function appendLog(id: string, chunk: string): void {
   const state = live(id);
   state.logs.push(chunk);
   if (state.logs.length > 2000) state.logs.splice(0, state.logs.length - 2000);
-  for (const sub of state.subscribers) sub(chunk);
+  // Guard each send: a client that disconnected leaves a closed stream that throws.
+  for (const sub of [...state.subscribers]) {
+    try {
+      sub(chunk);
+    } catch {
+      state.subscribers.delete(sub);
+    }
+  }
 }
 
 /** Replay buffered logs and stream future ones; returns an unsubscribe fn. */
@@ -66,7 +74,14 @@ async function reconcileAndBroadcast(force = false): Promise<void> {
   const json = JSON.stringify(list);
   if (!force && json === hub.lastJson) return;
   hub.lastJson = json;
-  for (const cb of hub.listeners) cb(list);
+  // Guard each send and drop subscribers whose stream has already closed.
+  for (const cb of [...hub.listeners]) {
+    try {
+      cb(list);
+    } catch {
+      hub.listeners.delete(cb);
+    }
+  }
 }
 
 /** Notify all subscribers that the instance list changed (immediate push). */
@@ -129,6 +144,22 @@ async function boot(row: InstanceRow): Promise<void> {
       status: 'running',
       error: null,
     });
+
+    // Containers are throwaway, so copy the host's Claude Code auth into each one.
+    const creds = await readClaudeCredentials();
+    if (creds) {
+      appendLog(row.id, 'Injecting Claude Code credentials…\n');
+      const injected = await injectClaudeCredentials(result.containerId, result.remoteUser, creds);
+      appendLog(
+        row.id,
+        injected.ok
+          ? '✓ Claude Code authorized in container\n'
+          : `⚠ Claude auth injection failed: ${injected.error}\n`,
+      );
+    } else {
+      appendLog(row.id, '⚠ No Claude Code credentials found on host; skipped auth injection\n');
+    }
+
     appendLog(row.id, `\n✓ Instance running on http://localhost:${row.host_port}\n`);
   } catch (err) {
     const message = (err as Error).message;

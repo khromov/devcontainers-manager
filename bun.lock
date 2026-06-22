@@ -9,6 +9,7 @@
         "@fontsource-variable/fraunces": "^5.2.9",
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
         "@fontsource-variable/public-sans": "^5.2.7",
+        "boring-avatars-vanilla": "^1.0.2",
         "mochi-framework": "file:./vendor/mochi-framework",
         "svelte": "^5.56.3",
       },
@@ -97,6 +98,8 @@
     "aria-query": ["aria-query@5.3.1", "", {}, "sha512-Z/ZeOgVl7bcSYZ/u/rh0fOpvEpq//LZmdbkXyc7syVzjPAhfOa9ebsdTSjEBDU4vs5nC98Kfduj1uFo0qyET3g=="],
 
     "axobject-query": ["axobject-query@4.1.0", "", {}, "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="],
+
+    "boring-avatars-vanilla": ["boring-avatars-vanilla@1.0.2", "", {}, "sha512-qQt3hWyVXckm1RWM0ULvwelt+msYrB4f/SQBHnLKNvDltklpyWs8uFoELRmI4gy2xPmWC1yakSILrSa82xv21g=="],
 
     "buffer-image-size": ["buffer-image-size@0.6.4", "", { "dependencies": { "@types/node": "*" } }, "sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ=="],
 

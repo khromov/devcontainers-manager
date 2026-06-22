@@ -158,6 +158,7 @@ export async function writeOverrideConfig(workspaceDir: string, hostPort: number
 export interface UpResult {
   outcome: string;
   containerId?: string;
+  remoteUser?: string;
   remoteWorkspaceFolder?: string;
   message?: string;
   description?: string;
