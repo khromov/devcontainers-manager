@@ -79,6 +79,11 @@ export async function handleBridgeExec(request: Request): Promise<Response> {
     typeof stdinB64 === 'string' && stdinB64 ? Buffer.from(stdinB64, 'base64') : undefined;
 
   try {
+    // The tool runs on the HOST in the instance's original source folder, so
+    // remote-context commands (gh auth/api/pr/issue/repo against the GitHub
+    // remote) work. Caveats: argument paths referencing *container* paths won't
+    // resolve here, and the source folder's local git state may differ from the
+    // container's working copy (which lives under ~/.devcontainers-manager/).
     const proc = Bun.spawn([bin, ...args], {
       cwd: instance.source_path,
       stdin: stdin ?? 'ignore',
@@ -137,7 +142,9 @@ fi
 
 code="$(printf '%s\\n' "$resp" | sed -n '1p')"
 printf '%s\\n' "$resp" | sed -n '2p' | base64 -d 2>/dev/null || true
-printf '%s\\n' "$resp" | sed -n '3p' | base64 -d 2>/dev/null >&2 || true
+# >&2 before 2>/dev/null: fd1→stderr first, then base64's own errors→/dev/null.
+# (The reverse order would point fd1 at the just-nulled fd2, dropping stderr.)
+printf '%s\\n' "$resp" | sed -n '3p' | base64 -d >&2 2>/dev/null || true
 case "$code" in
   '' | *[!0-9]*) exit 1 ;;
   *) exit "$code" ;;
