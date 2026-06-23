@@ -14,10 +14,19 @@ export interface Instance {
   avatar: string;
 }
 
+/** One authorization the manager can inject into instances (e.g. Claude Code). */
+export interface AuthProvider {
+  id: string;
+  label: string;
+  available: boolean;
+  /** Where the credential was found (keystore entry or file path), null if absent. */
+  source: string | null;
+}
+
 export interface Preflight {
   docker: boolean;
   cli: boolean;
-  claudeAuth: boolean;
+  auth: AuthProvider[];
 }
 
 /**

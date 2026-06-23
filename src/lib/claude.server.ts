@@ -15,10 +15,11 @@ function isValid(json: string): boolean {
 }
 
 /**
- * Read the host's Claude Code OAuth credentials as a JSON string, or null if absent.
+ * Locate the host's Claude Code OAuth credentials, returning both the JSON string
+ * and a human-readable description of where it came from, or null if absent.
  * macOS keeps them in the login Keychain; Linux/others use ~/.claude/.credentials.json.
  */
-export async function readClaudeCredentials(): Promise<string | null> {
+async function locateClaudeCredentials(): Promise<{ creds: string; source: string } | null> {
   if (process.platform === 'darwin') {
     try {
       const proc = Bun.spawn(
@@ -27,7 +28,9 @@ export async function readClaudeCredentials(): Promise<string | null> {
       );
       const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
       const trimmed = out.trim();
-      if (code === 0 && trimmed && isValid(trimmed)) return trimmed;
+      if (code === 0 && trimmed && isValid(trimmed)) {
+        return { creds: trimmed, source: `macOS Keychain — "${KEYCHAIN_SERVICE}"` };
+      }
     } catch {
       /* fall through to the file check */
     }
@@ -36,14 +39,23 @@ export async function readClaudeCredentials(): Promise<string | null> {
   const file = join(homedir(), '.claude', '.credentials.json');
   if (existsSync(file)) {
     const raw = (await readFile(file, 'utf8')).trim();
-    if (isValid(raw)) return raw;
+    if (isValid(raw)) return { creds: raw, source: '~/.claude/.credentials.json' };
   }
   return null;
 }
 
-/** Whether host Claude Code credentials are available to inject into containers. */
-export async function claudeAuthAvailable(): Promise<boolean> {
-  return (await readClaudeCredentials()) !== null;
+/** Read the host's Claude Code OAuth credentials as a JSON string, or null if absent. */
+export async function readClaudeCredentials(): Promise<string | null> {
+  return (await locateClaudeCredentials())?.creds ?? null;
+}
+
+/**
+ * Whether host Claude Code credentials are available to inject into containers,
+ * plus where they were found (for display). `source` is null when unavailable.
+ */
+export async function claudeAuthStatus(): Promise<{ available: boolean; source: string | null }> {
+  const found = await locateClaudeCredentials();
+  return { available: found !== null, source: found?.source ?? null };
 }
 
 /**

@@ -9,9 +9,36 @@
   let browserOpen = $state(false);
   let creating = $state(false);
   let actionError = $state<string | null>(null);
+  let credOpen = $state(false);
 
   // svelte-ignore state_referenced_locally
   const ready = preflight.docker && preflight.cli;
+
+  // Aggregate auth status: green when every provider is authorized, red when none
+  // are, amber only in the mixed state (impossible until a second provider exists).
+  const authedCount = $derived(preflight.auth.filter((a) => a.available).length);
+  const credState = $derived(
+    authedCount === preflight.auth.length ? 'ok' : authedCount === 0 ? 'error' : 'warn',
+  );
+  const credIcon: Record<typeof credState, string> = { ok: '✓', warn: '⚠', error: '✕' };
+
+  // Close the credentials dropdown on an outside click or Escape.
+  $effect(() => {
+    if (!credOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!(e.target as Element)?.closest('.cred-menu')) credOpen = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') credOpen = false;
+    };
+    // Defer registration so the click that opened the menu doesn't immediately close it.
+    window.addEventListener('click', onClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  });
 
   // Live instance list over SSE — the first message carries current state,
   // and the server pushes again on every change (boot progress, start/stop/delete).
@@ -89,14 +116,34 @@
 <header class="topbar">
   <div class="brand"><span class="logo">📦</span><span>Devcontainers Manager</span></div>
   <div class="topbar-actions">
-    <span
-      class="cred {preflight.claudeAuth ? 'on' : 'off'}"
-      title={preflight.claudeAuth
-        ? 'Your Claude Code credentials will be copied into each new instance.'
-        : 'No Claude Code credentials found on this computer — new instances will not have Claude auth. Run `claude` and sign in.'}
-    >
-      {preflight.claudeAuth ? '✓ Claude credentials' : '⚠ No Claude credentials'}
-    </span>
+    <div class="cred-menu">
+      <button
+        class="cred {credState}"
+        onclick={() => (credOpen = !credOpen)}
+        aria-expanded={credOpen}
+        aria-haspopup="menu"
+      >
+        {credIcon[credState]} Credentials
+      </button>
+      {#if credOpen}
+        <div class="cred-dropdown" role="menu">
+          {#each preflight.auth as provider (provider.id)}
+            <div
+              class="cred-row"
+              role="menuitem"
+              tabindex="-1"
+              title={provider.available
+                ? `Credentials from ${provider.source}, copied into each new instance.`
+                : 'No credentials found on this computer — run `claude` and sign in.'}
+            >
+              <span class="dot {provider.available ? 'on' : 'off'}"></span>
+              <span class="cred-label">{provider.label}</span>
+              <span class="cred-state">{provider.available ? 'Authorized' : 'Not found'}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
     <button class="btn danger" onclick={deleteAll} disabled={instances.length === 0}>
       Delete all
     </button>
@@ -206,23 +253,77 @@
     align-items: center;
     gap: 14px;
   }
+  .cred-menu {
+    position: relative;
+    display: inline-flex;
+  }
   .cred {
     display: inline-flex;
     align-items: center;
+    gap: 5px;
     font-family: var(--font-mono);
     font-size: 12px;
     padding: 5px 11px;
+    border: 0;
     border-radius: 999px;
-    cursor: default;
+    cursor: pointer;
     white-space: nowrap;
   }
-  .cred.on {
+  .cred:hover {
+    filter: brightness(0.97);
+  }
+  .cred.ok {
     background: var(--green-100);
     color: var(--green-700);
   }
-  .cred.off {
+  .cred.warn {
     background: var(--amber-100);
     color: var(--amber-600);
+  }
+  .cred.error {
+    background: var(--red-100);
+    color: var(--red-600);
+  }
+  .cred-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    min-width: 220px;
+    padding: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: 0 18px 36px -22px rgba(42, 40, 37, 0.32);
+  }
+  .cred-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: default;
+  }
+  .cred-row:hover {
+    background: var(--rule);
+  }
+  .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+  .dot.on {
+    background: var(--green-700);
+  }
+  .dot.off {
+    background: var(--amber-600);
+  }
+  .cred-state {
+    margin-left: auto;
+    color: var(--ink-soft);
   }
   .empty {
     text-align: center;
