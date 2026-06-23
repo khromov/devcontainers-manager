@@ -1,7 +1,9 @@
 <script lang="ts">
   import { ideUrl, type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
-  import { Package, Check, TriangleAlert, Plus } from '@lucide/svelte';
+  import { Package, Check, TriangleAlert, X, Plus } from '@lucide/svelte';
+  import toast, { Toaster } from 'svelte-french-toast';
+  import type { AuthProvider } from '../types.ts';
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -21,7 +23,16 @@
   const credState = $derived(
     authedCount === preflight.auth.length ? 'ok' : authedCount === 0 ? 'error' : 'warn',
   );
-  const credIcon: Record<typeof credState, string> = { ok: '✓', warn: '⚠', error: '✕' };
+  const credIcon = { ok: Check, warn: TriangleAlert, error: X } as const;
+  const CredIcon = $derived(credIcon[credState]);
+
+  function explainProvider(provider: AuthProvider) {
+    if (provider.available) {
+      toast.success(`${provider.label} credentials come from ${provider.source}.`);
+    } else {
+      toast.error(`No ${provider.label} credentials found — run \`claude\` and sign in.`);
+    }
+  }
 
   // Close the credentials dropdown on an outside click or Escape.
   $effect(() => {
@@ -126,15 +137,16 @@
         aria-label="Credentials"
         title="Credentials"
       >
-        {credIcon[credState]}
+        <CredIcon size={16} />
       </button>
       {#if credOpen}
         <div class="cred-dropdown" role="menu">
           {#each preflight.auth as provider (provider.id)}
-            <div
+            <button
+              type="button"
               class="cred-row"
               role="menuitem"
-              tabindex="-1"
+              onclick={() => explainProvider(provider)}
               title={provider.available
                 ? `Credentials from ${provider.source}, copied into each new instance.`
                 : 'No credentials found on this computer — run `claude` and sign in.'}
@@ -142,7 +154,7 @@
               <span class="dot {provider.available ? 'on' : 'off'}"></span>
               <span class="cred-label">{provider.label}</span>
               <span class="cred-state">{provider.available ? 'Authorized' : 'Not found'}</span>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}
@@ -151,7 +163,7 @@
       Delete all
     </button>
     <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
-      {creating ? 'Creating…' : '+ New instance'}
+      {#if creating}Creating…{:else}<Plus size={15} /> New instance{/if}
     </button>
   </div>
 </header>
@@ -176,7 +188,7 @@
       <p class="empty-title">No instances yet</p>
       <p class="empty-sub">Pick a project folder to spin up an isolated devcontainer.</p>
       <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready}>
-        + New instance
+        <Plus size={15} /> New instance
       </button>
     </div>
   {:else}
@@ -218,6 +230,8 @@
   <FolderBrowser onpick={createFrom} onclose={() => (browserOpen = false)} />
 {/if}
 
+<Toaster />
+
 <style>
   .topbar {
     display: flex;
@@ -233,6 +247,10 @@
     font-family: var(--font-serif);
     font-weight: 600;
     font-size: 20px;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
   }
   .stage {
     max-width: 1080px;
@@ -301,11 +319,16 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
     padding: 7px 9px;
+    border: 0;
     border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
     font-family: var(--font-mono);
     font-size: 12px;
-    cursor: default;
+    cursor: pointer;
   }
   .cred-row:hover {
     background: var(--rule);
@@ -470,6 +493,10 @@
     border-color: var(--red-600);
   }
   .primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     font: inherit;
     font-weight: 600;
     font-size: 14px;

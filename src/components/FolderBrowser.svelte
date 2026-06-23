@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { BrowseResult, FolderHistoryEntry } from '../types.ts';
+  import { X, FolderClock, ArrowUp, Folder, TriangleAlert } from '@lucide/svelte';
 
   let { onpick, onclose }: { onpick: (path: string) => void; onclose: () => void } = $props();
 
@@ -83,7 +84,7 @@
   >
     <div class="head">
       <h2>Pick a project folder</h2>
-      <button class="x" onclick={onclose} aria-label="Close">✕</button>
+      <button class="x" onclick={onclose} aria-label="Close"><X size={16} /></button>
     </div>
 
     <div class="crumbs">
@@ -96,7 +97,7 @@
         {#each shownHistory as entry (entry.source_path)}
           <div class="recent-row">
             <button class="recent-pick" onclick={() => onpick(entry.source_path)}>
-              <span class="icon">🗂️</span>
+              <span class="icon"><FolderClock size={16} /></span>
               <span class="recent-text">
                 <span class="recent-name">{entry.name}</span>
                 <span class="recent-path">{entry.source_path}</span>
@@ -111,7 +112,7 @@
                 removeHistory(entry.source_path);
               }}
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
         {/each}
@@ -141,7 +142,7 @@
       {:else if result}
         {#if result.parent && !query}
           <button class="row up" onclick={() => load(result?.parent ?? null)}>
-            <span class="icon">↑</span> ..
+            <span class="icon"><ArrowUp size={16} /></span> ..
           </button>
         {/if}
         {#if filtered.length === 0}
@@ -150,7 +151,7 @@
         {#each filtered as entry (entry.path)}
           <div class="row">
             <button class="nav" onclick={() => load(entry.path)}>
-              <span class="icon">📁</span>
+              <span class="icon"><Folder size={16} /></span>
               <span class="ename">{entry.name}</span>
               {#if entry.hasDevcontainer}<span class="badge">devcontainer</span>{/if}
             </button>
@@ -162,7 +163,11 @@
 
     {#if result && !result.hasDevcontainer}
       <div class="warn">
-        ⚠ No <code>devcontainer.json</code> in this folder — a default image will be used if you select it.
+        <TriangleAlert size={15} />
+        <span
+          >No <code>devcontainer.json</code> in this folder — a default image will be used if you
+          select it.</span
+        >
       </div>
     {/if}
 
@@ -209,10 +214,11 @@
     font-size: 18px;
   }
   .x {
+    display: inline-flex;
+    align-items: center;
     border: none;
     background: none;
     cursor: pointer;
-    font-size: 15px;
     color: var(--ink-soft);
   }
   .crumbs {
@@ -288,11 +294,12 @@
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
     border: none;
     background: var(--bg-card);
     color: var(--ink-soft);
     cursor: pointer;
-    font-size: 12px;
     line-height: 1;
     padding: 5px 7px;
     border-radius: 6px;
@@ -400,11 +407,18 @@
     color: var(--red-600);
   }
   .warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     padding: 10px 18px;
     background: var(--amber-100);
     color: var(--amber-600);
     font-size: 12.5px;
     border-top: 1px solid var(--rule);
+  }
+  .warn :global(svg) {
+    flex: none;
+    margin-top: 1px;
   }
   .warn code {
     font-family: var(--font-mono);
@@ -442,6 +456,8 @@
     cursor: not-allowed;
   }
   .icon {
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    color: var(--ink-soft);
   }
 </style>

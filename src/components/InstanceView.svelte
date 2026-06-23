@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ideUrl, type Instance } from '../types.ts';
+  import { ArrowLeft, ArrowUpRight } from '@lucide/svelte';
 
   let { id }: { id: string } = $props();
 
@@ -51,7 +52,7 @@
 </script>
 
 <header class="topbar">
-  <a class="back" href="/">← All instances</a>
+  <a class="back" href="/"><ArrowLeft size={15} /> All instances</a>
   <div class="title">
     <span class="name">{instance?.name ?? 'Instance'}</span>
     {#if instance}
@@ -61,7 +62,7 @@
     {/if}
   </div>
   {#if instance?.status === 'running'}
-    <a class="open" href={url} target="_blank" rel="noopener">Open in new tab ↗</a>
+    <a class="open" href={url} target="_blank" rel="noopener">Open in new tab <ArrowUpRight size={15} /></a>
   {/if}
 </header>
 
@@ -91,6 +92,9 @@
     border-bottom: 1px solid var(--rule);
   }
   .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     color: var(--ink-soft);
     text-decoration: none;
     font-size: 14px;
@@ -132,6 +136,9 @@
     color: var(--red-600);
   }
   .open {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-size: 13px;
     color: var(--green-700);
     text-decoration: none;
