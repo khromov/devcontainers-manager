@@ -12,6 +12,8 @@ export interface DirEntry {
 export interface BrowseResult {
   /** Absolute path being listed. */
   path: string;
+  /** Whether `path` itself contains a devcontainer.json. */
+  hasDevcontainer: boolean;
   /** Parent directory, or null when at the filesystem root. */
   parent: string | null;
   /** Subdirectories of `path`, sorted, hidden dirs excluded. */
@@ -48,6 +50,7 @@ export async function browse(path?: string): Promise<BrowseResult> {
   const parent = dirname(target);
   return {
     path: target,
+    hasDevcontainer: hasDevcontainer(target),
     parent: parent === target ? null : parent,
     entries,
   };

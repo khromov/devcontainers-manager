@@ -36,6 +36,7 @@ export interface DirEntry {
 
 export interface BrowseResult {
   path: string;
+  hasDevcontainer: boolean;
   parent: string | null;
   entries: DirEntry[];
 }

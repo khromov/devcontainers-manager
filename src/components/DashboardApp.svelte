@@ -73,9 +73,19 @@
 
 <header class="topbar">
   <div class="brand"><span class="logo">📦</span><span>Devcontainers Manager</span></div>
-  <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
-    {creating ? 'Creating…' : '+ New instance'}
-  </button>
+  <div class="topbar-actions">
+    <span
+      class="cred {preflight.claudeAuth ? 'on' : 'off'}"
+      title={preflight.claudeAuth
+        ? 'Your Claude Code credentials will be copied into each new instance.'
+        : 'No Claude Code credentials found on this computer — new instances will not have Claude auth. Run `claude` and sign in.'}
+    >
+      {preflight.claudeAuth ? '✓ Claude credentials' : '⚠ No Claude credentials'}
+    </span>
+    <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
+      {creating ? 'Creating…' : '+ New instance'}
+    </button>
+  </div>
 </header>
 
 <main class="stage">
@@ -84,13 +94,6 @@
       <strong>Setup needed.</strong>
       {#if !preflight.docker}<span>Docker daemon is not reachable.</span>{/if}
       {#if !preflight.cli}<span>The devcontainer CLI is not available.</span>{/if}
-    </div>
-  {/if}
-
-  {#if !preflight.claudeAuth}
-    <div class="banner warn">
-      <strong>Claude Code not authorized.</strong>
-      <span>No Claude Code credentials found on this computer, so new instances won't have Claude auth. Run <code>claude</code> and sign in, then create instances.</span>
     </div>
   {/if}
 
@@ -179,16 +182,28 @@
     background: var(--red-100);
     color: var(--red-600);
   }
-  .banner.warn {
+  .topbar-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .cred {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    cursor: default;
+    white-space: nowrap;
+  }
+  .cred.on {
+    background: var(--green-100);
+    color: var(--green-700);
+  }
+  .cred.off {
     background: var(--amber-100);
     color: var(--amber-600);
-  }
-  .banner.warn code {
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-    background: rgba(154, 106, 30, 0.12);
-    padding: 1px 5px;
-    border-radius: 4px;
   }
   .empty {
     text-align: center;

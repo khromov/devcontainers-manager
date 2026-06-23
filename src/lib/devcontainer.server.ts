@@ -10,9 +10,26 @@ import {
 
 const CODE_SERVER_FEATURE = 'ghcr.io/coder/devcontainer-features/code-server:1';
 
+/** Where the override config file is staged inside the copied workspace. */
+const CODE_SERVER_SETTINGS_FILE = 'code-server-settings.json';
+
+/** Default code-server (VS Code) user settings: dark theme, no agent chat panel. */
+const CODE_SERVER_SETTINGS = {
+  'workbench.colorTheme': 'Default Dark Modern',
+  'workbench.secondarySideBar.defaultVisibility': 'hidden',
+  'chat.commandCenter.enabled': false,
+};
+
+/** Copy the staged settings into code-server's user-data dir before first launch. */
+const CODE_SERVER_APPLY_SETTINGS =
+  `mkdir -p ~/.local/share/code-server/User && ` +
+  `cp -f \\"$PWD/.devcontainer/${CODE_SERVER_SETTINGS_FILE}\\" ` +
+  `~/.local/share/code-server/User/settings.json 2>/dev/null;`;
+
 /** Launch code-server on every container start, idempotently, bound for host access. */
 const CODE_SERVER_LAUNCH =
-  `bash -c "pgrep -f 'code-server.*${CODE_SERVER_PORT}' >/dev/null 2>&1 || ` +
+  `bash -c "${CODE_SERVER_APPLY_SETTINGS} ` +
+  `pgrep -f 'code-server.*${CODE_SERVER_PORT}' >/dev/null 2>&1 || ` +
   `nohup code-server --bind-addr 0.0.0.0:${CODE_SERVER_PORT} --auth none ` +
   `--disable-workspace-trust \\"$PWD\\" >/tmp/code-server.log 2>&1 &"`;
 
@@ -153,6 +170,14 @@ export async function writeOverrideConfig(workspaceDir: string, hostPort: number
 
   await mkdir(join(workspaceDir, '.devcontainer'), { recursive: true }).catch(() => {});
   await writeFile(target, JSON.stringify(config, null, 2) + '\n', 'utf8');
+
+  // Stage the code-server user settings next to the config; the launcher copies
+  // them into the container's user-data dir on first start.
+  await writeFile(
+    join(workspaceDir, '.devcontainer', CODE_SERVER_SETTINGS_FILE),
+    JSON.stringify(CODE_SERVER_SETTINGS, null, 2) + '\n',
+    'utf8',
+  );
 }
 
 export interface UpResult {

@@ -6,10 +6,18 @@
   let result = $state<BrowseResult | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
+  let query = $state('');
+
+  const filtered = $derived(
+    result
+      ? result.entries.filter((e) => e.name.toLowerCase().includes(query.trim().toLowerCase()))
+      : [],
+  );
 
   async function load(path: string | null = null) {
     loading = true;
     errorMsg = null;
+    query = '';
     try {
       const url = path ? `/api/browse?path=${encodeURIComponent(path)}` : '/api/browse';
       const res = await fetch(url);
@@ -53,21 +61,31 @@
       <code>{result?.path ?? '…'}</code>
     </div>
 
+    <div class="search">
+      <input
+        type="text"
+        placeholder="Filter folders…"
+        bind:value={query}
+        spellcheck="false"
+        autocomplete="off"
+      />
+    </div>
+
     <div class="list">
       {#if loading}
         <div class="muted">Loading…</div>
       {:else if errorMsg}
         <div class="muted err">{errorMsg}</div>
       {:else if result}
-        {#if result.parent}
+        {#if result.parent && !query}
           <button class="row up" onclick={() => load(result?.parent ?? null)}>
             <span class="icon">↑</span> ..
           </button>
         {/if}
-        {#if result.entries.length === 0}
-          <div class="muted">No subfolders here.</div>
+        {#if filtered.length === 0}
+          <div class="muted">{query ? 'No folders match.' : 'No subfolders here.'}</div>
         {/if}
-        {#each result.entries as entry (entry.path)}
+        {#each filtered as entry (entry.path)}
           <div class="row">
             <button class="nav" onclick={() => load(entry.path)}>
               <span class="icon">📁</span>
@@ -79,6 +97,12 @@
         {/each}
       {/if}
     </div>
+
+    {#if result && !result.hasDevcontainer}
+      <div class="warn">
+        ⚠ No <code>devcontainer.json</code> in this folder — a default image will be used if you select it.
+      </div>
+    {/if}
 
     <div class="foot">
       <span class="hint">Browse to a folder, then select this folder or any subfolder.</span>
@@ -139,6 +163,24 @@
     font-size: 12px;
     color: var(--ink-soft);
     white-space: nowrap;
+  }
+  .search {
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .search input {
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: #fff;
+    color: var(--ink);
+  }
+  .search input:focus {
+    outline: none;
+    border-color: var(--green-600);
   }
   .list {
     flex: 1;
@@ -202,6 +244,20 @@
   }
   .muted.err {
     color: var(--red-600);
+  }
+  .warn {
+    padding: 10px 18px;
+    background: var(--amber-100);
+    color: var(--amber-600);
+    font-size: 12.5px;
+    border-top: 1px solid var(--rule);
+  }
+  .warn code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: rgba(154, 106, 30, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
   }
   .foot {
     display: flex;

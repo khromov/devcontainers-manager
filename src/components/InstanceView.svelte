@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { ideUrl, type Instance } from '../types.ts';
 
   let { id }: { id: string } = $props();
@@ -17,12 +18,15 @@
   // Stream the boot/build log over SSE.
   $effect(() => {
     const source = new EventSource(`/api/instances/${id}/logs`);
-    source.onmessage = (event) => {
+    source.onmessage = async (event) => {
       try {
         logs += JSON.parse(event.data) as string;
       } catch {
         logs += event.data;
       }
+      // Wait for the new log content to render before measuring, otherwise
+      // scrollHeight is stale and we stop a line short of the bottom.
+      await tick();
       if (logBox) logBox.scrollTop = logBox.scrollHeight;
     };
     return () => source.close();
