@@ -97,9 +97,9 @@
     >
       {preflight.claudeAuth ? '✓ Claude credentials' : '⚠ No Claude credentials'}
     </span>
-    {#if instances.length > 0}
-      <button class="btn danger" onclick={deleteAll}>Delete all</button>
-    {/if}
+    <button class="btn danger" onclick={deleteAll} disabled={instances.length === 0}>
+      Delete all
+    </button>
     <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
       {creating ? 'Creating…' : '+ New instance'}
     </button>
@@ -346,6 +346,13 @@
   .btn:hover {
     border-color: var(--ink-faint);
   }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn:disabled:hover {
+    border-color: var(--rule);
+  }
   .btn.open {
     background: var(--green-700);
     color: #fff;
@@ -357,7 +364,7 @@
   .btn.danger {
     color: var(--red-600);
   }
-  .btn.danger:hover {
+  .btn.danger:hover:not(:disabled) {
     border-color: var(--red-600);
   }
   .primary {
