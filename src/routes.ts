@@ -14,7 +14,7 @@ import {
   subscribeLogs,
 } from './lib/instances.server.ts';
 import { deleteFolderHistory, getInstance, listFolderHistory } from './lib/db.server.ts';
-import { proxyWsRelay, PROXY_WS_PATTERN } from './lib/proxy.server.ts';
+import { proxyRoutes } from './lib/proxy.server.ts';
 
 async function preflight() {
   const [docker, cli, claudeAuth] = await Promise.all([
@@ -138,8 +138,7 @@ export const routes: Record<string, MochiRouteValue> = {
     stream.onClose(unsubscribe);
   }),
 
-  // Registers the proxy WebSocket relay handlers in Mochi's websocket
-  // dispatcher. Clients never navigate here — proxied sockets are upgraded from
-  // the fetch fallback and tagged with this pattern so they dispatch to it.
-  [PROXY_WS_PATTERN]: proxyWsRelay,
+  // Reverse proxy for each instance's code-server: /p/:id redirect, /p/:id/*
+  // HTTP+WS handler, and the WebSocket relay sentinel.
+  ...proxyRoutes,
 };
