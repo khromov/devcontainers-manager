@@ -1,7 +1,17 @@
 import { Mochi, silenceInternalRoutes } from 'mochi-framework';
+import { setupTailwind } from 'mochi-framework/tailwind';
 import { routes } from './routes.ts';
 
 const PORT = Number(process.env.PORT) || 3333;
+
+// Compile Tailwind before serving. The top-level await guarantees the generated
+// CSS exists for both `mochi-framework build` (which imports this module) and
+// the dev/start servers. In dev it also watches sources and rebuilds.
+await setupTailwind({
+  input: './src/styles/app.css',
+  output: './src/styles/app.generated.css',
+  minify: process.env.MODE !== 'development',
+});
 
 await Mochi.serve({
   port: PORT,

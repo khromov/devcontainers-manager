@@ -84,13 +84,34 @@
     stopped: 'Stopped',
     error: 'Error',
   };
+
+  // Tailwind class fragments kept as constants so the markup stays readable.
+  const statusBadge = 'font-mono text-[11px] px-2 py-[3px] rounded-full whitespace-nowrap';
+  const statusColor: Record<Instance['status'], string> = {
+    creating: 'bg-amber-100 text-amber-600',
+    running: 'bg-green-100 text-green-700',
+    stopped: 'bg-rule text-ink-soft',
+    error: 'bg-red-100 text-red-600',
+  };
+
+  const btnBase = 'text-[13px] px-3 py-[7px] rounded-lg border cursor-pointer no-underline';
+  const btn = `${btnBase} bg-white text-ink border-rule hover:border-ink-faint`;
+  const btnOpen = `${btnBase} bg-green-700 text-white border-green-700`;
+  const btnGhost = `${btnBase} bg-transparent text-ink border-rule hover:border-ink-faint`;
+  const btnDanger = `${btnBase} bg-white text-red-600 border-rule hover:border-red-600`;
+  const primary =
+    'font-semibold text-sm px-4 py-[9px] rounded-[10px] border border-green-700 bg-green-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 </script>
 
-<header class="topbar">
-  <div class="brand"><span class="logo">📦</span><span>Devcontainers Manager</span></div>
-  <div class="topbar-actions">
+<header class="flex items-center justify-between px-7 py-5 border-b border-rule">
+  <div class="inline-flex items-center gap-2.5 font-serif font-semibold text-xl">
+    <span>📦</span><span>Devcontainers Manager</span>
+  </div>
+  <div class="inline-flex items-center gap-3.5">
     <span
-      class="cred {preflight.claudeAuth ? 'on' : 'off'}"
+      class="inline-flex items-center font-mono text-xs px-[11px] py-[5px] rounded-full cursor-default whitespace-nowrap {preflight.claudeAuth
+        ? 'bg-green-100 text-green-700'
+        : 'bg-amber-100 text-amber-600'}"
       title={preflight.claudeAuth
         ? 'Your Claude Code credentials will be copied into each new instance.'
         : 'No Claude Code credentials found on this computer — new instances will not have Claude auth. Run `claude` and sign in.'}
@@ -98,17 +119,17 @@
       {preflight.claudeAuth ? '✓ Claude credentials' : '⚠ No Claude credentials'}
     </span>
     {#if instances.length > 0}
-      <button class="btn danger" onclick={deleteAll}>Delete all</button>
+      <button class={btnDanger} onclick={deleteAll}>Delete all</button>
     {/if}
-    <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
+    <button class={primary} onclick={() => (browserOpen = true)} disabled={!ready || creating}>
       {creating ? 'Creating…' : '+ New instance'}
     </button>
   </div>
 </header>
 
-<main class="stage">
+<main class="max-w-[1080px] mx-auto px-6 pt-7 pb-20">
   {#if !ready}
-    <div class="banner error">
+    <div class="rounded-[10px] px-4 py-3 mb-5 flex gap-2 flex-wrap bg-red-100 text-red-600">
       <strong>Setup needed.</strong>
       {#if !preflight.docker}<span>Docker daemon is not reachable.</span>{/if}
       {#if !preflight.cli}<span>The devcontainer CLI is not available.</span>{/if}
@@ -116,47 +137,51 @@
   {/if}
 
   {#if actionError}
-    <div class="banner error"><strong>Error.</strong> <span>{actionError}</span></div>
+    <div class="rounded-[10px] px-4 py-3 mb-5 flex gap-2 flex-wrap bg-red-100 text-red-600">
+      <strong>Error.</strong> <span>{actionError}</span>
+    </div>
   {/if}
 
   {#if !loaded}
-    <div class="empty"><p class="empty-sub">Loading…</p></div>
+    <div class="text-center px-5 py-20"><p class="text-ink-soft m-0">Loading…</p></div>
   {:else if instances.length === 0}
-    <div class="empty">
-      <p class="empty-title">No instances yet</p>
-      <p class="empty-sub">Pick a project folder to spin up an isolated devcontainer.</p>
-      <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready}>
+    <div class="text-center px-5 py-20">
+      <p class="font-serif text-2xl mt-0 mb-1.5">No instances yet</p>
+      <p class="text-ink-soft mt-0 mb-[22px]">Pick a project folder to spin up an isolated devcontainer.</p>
+      <button class={primary} onclick={() => (browserOpen = true)} disabled={!ready}>
         + New instance
       </button>
     </div>
   {:else}
-    <ul class="grid">
+    <ul class="list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-[18px]">
       {#each instances as instance (instance.id)}
-        <li class="card">
-          <div class="card-head">
+        <li
+          class="bg-bg-card border border-rule rounded-[14px] px-[18px] pt-[18px] pb-4 shadow-[0_18px_36px_-28px_rgba(42,40,37,0.22)]"
+        >
+          <div class="flex items-center justify-between gap-2.5">
             <!-- Trusted: server-generated SVG from boring-avatars-vanilla, seeded by instance id (avatar.server.ts) -->
-            <span class="avatar">{@html instance.avatar}</span>
-            <div class="name">{instance.name}</div>
-            <span class="status {instance.status}">{statusLabel[instance.status]}</span>
+            <span class="inline-flex flex-none w-10 h-10 rounded-full overflow-hidden [&_svg]:block">{@html instance.avatar}</span>
+            <div class="flex-1 min-w-0 font-semibold text-base truncate">{instance.name}</div>
+            <span class="{statusBadge} {statusColor[instance.status]}">{statusLabel[instance.status]}</span>
           </div>
-          <div class="path" title={instance.source_path}>{instance.source_path}</div>
-          <div class="port">localhost:{instance.host_port}</div>
+          <div class="mt-2.5 font-mono text-xs text-ink-soft truncate" title={instance.source_path}>{instance.source_path}</div>
+          <div class="mt-1 font-mono text-xs text-ink-faint">localhost:{instance.host_port}</div>
           {#if instance.status === 'error' && instance.error}
-            <div class="card-error">{instance.error}</div>
+            <div class="mt-2.5 text-xs text-red-600 bg-red-100 rounded-lg px-2.5 py-2 max-h-20 overflow-auto">{instance.error}</div>
           {/if}
-          <div class="actions">
+          <div class="mt-4 flex flex-wrap gap-2">
             {#if instance.status === 'running'}
-              <a class="btn open" href={ideUrl(instance)} target="_blank" rel="noopener">
+              <a class={btnOpen} href={ideUrl(instance)} target="_blank" rel="noopener">
                 Open IDE
               </a>
-              <button class="btn" onclick={() => act(instance.id, 'stop')}>Stop</button>
+              <button class={btn} onclick={() => act(instance.id, 'stop')}>Stop</button>
             {:else if instance.status === 'stopped'}
-              <button class="btn" onclick={() => act(instance.id, 'start')}>Start</button>
+              <button class={btn} onclick={() => act(instance.id, 'start')}>Start</button>
             {:else if instance.status === 'creating'}
-              <a class="btn" href={`/instances/${instance.id}`}>View logs</a>
+              <a class={btn} href={`/instances/${instance.id}`}>View logs</a>
             {/if}
-            <a class="btn ghost" href={`/instances/${instance.id}`}>Details</a>
-            <button class="btn danger" onclick={() => act(instance.id, 'delete')}>Delete</button>
+            <a class={btnGhost} href={`/instances/${instance.id}`}>Details</a>
+            <button class={btnDanger} onclick={() => act(instance.id, 'delete')}>Delete</button>
           </div>
         </li>
       {/each}
@@ -167,212 +192,3 @@
 {#if browserOpen}
   <FolderBrowser onpick={createFrom} onclose={() => (browserOpen = false)} />
 {/if}
-
-<style>
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 28px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 20px;
-  }
-  .stage {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 28px 24px 80px;
-  }
-  .banner {
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .banner.error {
-    background: var(--red-100);
-    color: var(--red-600);
-  }
-  .topbar-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .cred {
-    display: inline-flex;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 5px 11px;
-    border-radius: 999px;
-    cursor: default;
-    white-space: nowrap;
-  }
-  .cred.on {
-    background: var(--green-100);
-    color: var(--green-700);
-  }
-  .cred.off {
-    background: var(--amber-100);
-    color: var(--amber-600);
-  }
-  .empty {
-    text-align: center;
-    padding: 80px 20px;
-  }
-  .empty-title {
-    font-family: var(--font-serif);
-    font-size: 24px;
-    margin: 0 0 6px;
-  }
-  .empty-sub {
-    color: var(--ink-soft);
-    margin: 0 0 22px;
-  }
-  .grid {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 18px;
-  }
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    padding: 18px 18px 16px;
-    box-shadow: 0 18px 36px -28px rgba(42, 40, 37, 0.22);
-  }
-  .card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .avatar {
-    display: inline-flex;
-    flex: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .avatar :global(svg) {
-    display: block;
-  }
-  .name {
-    flex: 1;
-    min-width: 0;
-    font-weight: 600;
-    font-size: 16px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .status {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-  .status.running {
-    background: var(--green-100);
-    color: var(--green-700);
-  }
-  .status.stopped {
-    background: var(--rule);
-    color: var(--ink-soft);
-  }
-  .status.creating {
-    background: var(--amber-100);
-    color: var(--amber-600);
-  }
-  .status.error {
-    background: var(--red-100);
-    color: var(--red-600);
-  }
-  .path {
-    margin-top: 10px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-soft);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .port {
-    margin-top: 4px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-faint);
-  }
-  .card-error {
-    margin-top: 10px;
-    font-size: 12px;
-    color: var(--red-600);
-    background: var(--red-100);
-    border-radius: 8px;
-    padding: 8px 10px;
-    max-height: 80px;
-    overflow: auto;
-  }
-  .actions {
-    margin-top: 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .btn {
-    font: inherit;
-    font-size: 13px;
-    padding: 7px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--rule);
-    background: #fff;
-    color: var(--ink);
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .btn:hover {
-    border-color: var(--ink-faint);
-  }
-  .btn.open {
-    background: var(--green-700);
-    color: #fff;
-    border-color: var(--green-700);
-  }
-  .btn.ghost {
-    background: transparent;
-  }
-  .btn.danger {
-    color: var(--red-600);
-  }
-  .btn.danger:hover {
-    border-color: var(--red-600);
-  }
-  .primary {
-    font: inherit;
-    font-weight: 600;
-    font-size: 14px;
-    padding: 9px 16px;
-    border-radius: 10px;
-    border: 1px solid var(--green-700);
-    background: var(--green-700);
-    color: #fff;
-    cursor: pointer;
-  }
-  .primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-</style>

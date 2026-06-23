@@ -20,6 +20,14 @@
     error: 'Error',
   };
 
+  const statusBadge = 'font-mono text-[11px] px-2 py-[3px] rounded-full';
+  const statusColor: Record<Instance['status'], string> = {
+    creating: 'bg-amber-100 text-amber-600',
+    running: 'bg-green-100 text-green-700',
+    stopped: 'bg-rule text-ink-soft',
+    error: 'bg-red-100 text-red-600',
+  };
+
   // Stream the boot/build log over SSE.
   $effect(() => {
     const source = new EventSource(`/api/instances/${id}/logs`);
@@ -50,180 +58,44 @@
   const url = $derived(instance ? ideUrl(instance) : '#');
 </script>
 
-<header class="topbar">
-  <a class="back" href="/">← All instances</a>
-  <div class="title">
-    <span class="name">{instance?.name ?? 'Instance'}</span>
+<header class="flex items-center gap-[18px] px-6 py-4 border-b border-rule">
+  <a class="text-ink-soft no-underline text-sm hover:text-green-700" href="/">← All instances</a>
+  <div class="flex items-center gap-2.5 flex-1">
+    <span class="font-serif font-semibold text-lg">{instance?.name ?? 'Instance'}</span>
     {#if instance}
-      <span class="status {instance.status}">{statusLabel[instance.status]}</span>
+      <span class="{statusBadge} {statusColor[instance.status]}">{statusLabel[instance.status]}</span>
     {:else}
-      <span class="skel skel-pill"></span>
+      <span class="skel w-16 h-[18px] rounded-full"></span>
     {/if}
   </div>
   {#if instance?.status === 'running'}
-    <a class="open" href={url} target="_blank" rel="noopener">Open in new tab ↗</a>
+    <a
+      class="text-[13px] text-green-700 no-underline border border-green-200 px-3 py-[7px] rounded-lg"
+      href={url}
+      target="_blank"
+      rel="noopener">Open in new tab ↗</a
+    >
   {/if}
 </header>
 
-<main class="stage">
-  <div class="meta">
-    <span class="k">Source</span>
-    {#if instance}<code>{instance.source_path}</code>{:else}<span class="skel skel-wide"></span>{/if}
-    <span class="k">Port</span>
-    {#if instance}<code>localhost:{instance.host_port}</code>{:else}<span class="skel skel-narrow"></span>{/if}
+<main class="max-w-[1200px] mx-auto px-6 pt-5 pb-10">
+  <div class="grid grid-cols-[max-content_1fr] gap-x-3.5 gap-y-1.5 items-center mb-[18px]">
+    <span class="font-serif text-[11px] tracking-[0.14em] uppercase text-ink-faint">Source</span>
+    {#if instance}<code class="font-mono text-[13px] text-ink-soft">{instance.source_path}</code>{:else}<span class="skel h-[0.95em] w-[min(420px,60vw)] rounded"></span>{/if}
+    <span class="font-serif text-[11px] tracking-[0.14em] uppercase text-ink-faint">Port</span>
+    {#if instance}<code class="font-mono text-[13px] text-ink-soft">localhost:{instance.host_port}</code>{:else}<span class="skel h-[0.95em] w-[120px] rounded"></span>{/if}
   </div>
 
-  <div class="logwrap">
-    <div class="logbar">Boot log</div>
-    <div class="logs" {@attach autoscroll}><pre>{logs || 'Waiting for output…'}</pre></div>
+  <div class="border border-rule rounded-xl overflow-hidden">
+    <div class="px-3.5 py-2.5 bg-bg-card border-b border-rule font-mono text-xs text-ink-soft">Boot log</div>
+    <div
+      class="bg-[#1e1c19] text-[#e7e0d4] p-3.5 h-[calc(100vh-320px)] min-h-[360px] overflow-auto"
+      {@attach autoscroll}
+    >
+      <pre class="m-0 font-mono text-[12.5px] leading-[1.5] whitespace-pre-wrap break-words">{logs || 'Waiting for output…'}</pre>
+    </div>
     {#if instance?.status === 'error' && instance.error}
-      <div class="err">{instance.error}</div>
+      <div class="px-3.5 py-3 bg-red-100 text-red-600 text-[13px]">{instance.error}</div>
     {/if}
   </div>
 </main>
-
-<style>
-  .topbar {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .back {
-    color: var(--ink-soft);
-    text-decoration: none;
-    font-size: 14px;
-  }
-  .back:hover {
-    color: var(--green-700);
-  }
-  .title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-  }
-  .name {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 18px;
-  }
-  .status {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 999px;
-  }
-  .status.running {
-    background: var(--green-100);
-    color: var(--green-700);
-  }
-  .status.stopped {
-    background: var(--rule);
-    color: var(--ink-soft);
-  }
-  .status.creating {
-    background: var(--amber-100);
-    color: var(--amber-600);
-  }
-  .status.error {
-    background: var(--red-100);
-    color: var(--red-600);
-  }
-  .open {
-    font-size: 13px;
-    color: var(--green-700);
-    text-decoration: none;
-    border: 1px solid var(--green-200);
-    padding: 7px 12px;
-    border-radius: 8px;
-  }
-  .stage {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px 24px 40px;
-  }
-  .meta {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 6px 14px;
-    align-items: center;
-    margin-bottom: 18px;
-  }
-  .meta .k {
-    font-family: var(--font-serif);
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
-  .meta code {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--ink-soft);
-  }
-  .skel {
-    display: inline-block;
-    height: 0.95em;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--rule) 25%, var(--bg-card) 50%, var(--rule) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
-    vertical-align: middle;
-  }
-  .skel-wide {
-    width: min(420px, 60vw);
-  }
-  .skel-narrow {
-    width: 120px;
-  }
-  .skel-pill {
-    width: 64px;
-    height: 18px;
-    border-radius: 999px;
-  }
-  @keyframes shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-  .logwrap {
-    border: 1px solid var(--rule);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  .logbar {
-    padding: 10px 14px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--rule);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-soft);
-  }
-  .logs {
-    background: #1e1c19;
-    color: #e7e0d4;
-    padding: 14px;
-    height: calc(100vh - 320px);
-    min-height: 360px;
-    overflow: auto;
-  }
-  .logs pre {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .err {
-    padding: 12px 14px;
-    background: var(--red-100);
-    color: var(--red-600);
-    font-size: 13px;
-  }
-</style>

@@ -1,0 +1,83 @@
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css';
+
+@source '../components/**/*.svelte';
+@source '../pages/**/*.svelte';
+
+/* Design tokens — ported from the former :root block in shell.html. Exposed as
+   Tailwind theme vars so utilities like `bg-bg`, `text-ink-soft`, `border-rule`,
+   `bg-green-700`, `font-serif`/`font-mono` are generated. */
+@theme {
+  --color-bg: #f1ecdf;
+  --color-bg-card: #fbf8f1;
+  --color-ink: #2a2825;
+  --color-ink-soft: #6b665e;
+  --color-ink-faint: #a39e94;
+  --color-rule: #e6e0d2;
+  --color-green-700: #385c47;
+  --color-green-600: #4a7159;
+  --color-green-200: #d6e4d8;
+  --color-green-100: #e8efe5;
+  --color-red-600: #b4452f;
+  --color-red-100: #f6e3dd;
+  --color-amber-600: #9a6a1e;
+  --color-amber-100: #f3e7cf;
+
+  --font-serif: 'Fraunces Variable', serif;
+  --font-sans: 'Public Sans Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Base/global styles — preflight is intentionally skipped, so the resets that
+   used to live in shell.html are reproduced here. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(56, 92, 71, 0.1), transparent 60%),
+    var(--color-bg);
+  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.55;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Without preflight, user-agent button defaults (macOS pill shape, etc.) would
+   clobber utilities like `rounded-lg`/`bg-transparent`, so reset buttons. */
+button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton shimmer — the gradient + background-size + keyframes combo doesn't
+   map to stock utilities. Width/height/radius are supplied per use site. */
+@utility skel {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--color-rule) 25%,
+    var(--color-bg-card) 50%,
+    var(--color-rule) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}

@@ -2,6 +2,7 @@
   import '@fontsource-variable/fraunces';
   import '@fontsource-variable/public-sans';
   import '@fontsource-variable/jetbrains-mono';
+  import '../styles/app.generated.css';
   import type { Preflight } from '../types.ts';
   import DashboardApp from '../components/DashboardApp.svelte';
 
