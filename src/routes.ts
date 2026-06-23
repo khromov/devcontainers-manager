@@ -5,6 +5,7 @@ import { claudeAuthAvailable } from './lib/claude.server.ts';
 import { browse } from './lib/picker.server.ts';
 import {
   createInstance,
+  deleteAllInstances,
   deleteInstance,
   listInstances,
   startInstance,
@@ -74,6 +75,12 @@ export const routes: Record<string, MochiRouteValue> = {
       }
     }
     return apiError(405, 'Method Not Allowed');
+  }),
+
+  '/api/instances/delete-all': Mochi.api(async ({ method }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    await deleteAllInstances();
+    return json({ ok: true });
   }),
 
   '/api/instances/:id/start': Mochi.api(async ({ method, params }) => {

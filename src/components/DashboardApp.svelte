@@ -63,6 +63,21 @@
     }
   }
 
+  async function deleteAll() {
+    actionError = null;
+    if (!confirm(`Delete all ${instances.length} instances and their copied files?`)) return;
+    try {
+      const res = await fetch('/api/instances/delete-all', { method: 'POST' });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: { message: string } } | null;
+        throw new Error(data?.error?.message ?? 'Failed to delete all');
+      }
+      // The SSE stream reflects the resulting empty state.
+    } catch (err) {
+      actionError = (err as Error).message;
+    }
+  }
+
   const statusLabel: Record<Instance['status'], string> = {
     creating: 'Booting…',
     running: 'Running',
@@ -82,6 +97,9 @@
     >
       {preflight.claudeAuth ? '✓ Claude credentials' : '⚠ No Claude credentials'}
     </span>
+    {#if instances.length > 0}
+      <button class="btn danger" onclick={deleteAll}>Delete all</button>
+    {/if}
     <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
       {creating ? 'Creating…' : '+ New instance'}
     </button>

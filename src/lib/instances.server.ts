@@ -240,3 +240,9 @@ export async function deleteInstance(id: string): Promise<void> {
   forgetAvatar(id);
   triggerReconcile();
 }
+
+export async function deleteAllInstances(): Promise<void> {
+  for (const row of allInstances()) {
+    await deleteInstance(row.id);
+  }
+}
