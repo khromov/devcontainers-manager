@@ -10,6 +10,8 @@ export interface Instance {
   status: 'creating' | 'running' | 'stopped' | 'error';
   error: string | null;
   created_at: number;
+  /** Server-rendered SVG avatar markup, unique per instance. */
+  avatar: string;
 }
 
 export interface Preflight {

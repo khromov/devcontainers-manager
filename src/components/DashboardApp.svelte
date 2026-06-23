@@ -1,11 +1,6 @@
 <script lang="ts">
-  import boring from 'boring-avatars-vanilla';
   import { ideUrl, type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
-
-  // A unique SVG avatar per instance, seeded by its id so it stays stable.
-  const avatar = (instance: Instance) =>
-    boring({ name: instance.id, variant: 'beam', size: 40 });
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -118,7 +113,7 @@
       {#each instances as instance (instance.id)}
         <li class="card">
           <div class="card-head">
-            <span class="avatar">{@html avatar(instance)}</span>
+            <span class="avatar">{@html instance.avatar}</span>
             <div class="name">{instance.name}</div>
             <span class="status {instance.status}">{statusLabel[instance.status]}</span>
           </div>

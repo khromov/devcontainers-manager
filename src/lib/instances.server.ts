@@ -14,6 +14,8 @@ import {
 import { isRunning, removeContainer, startContainer, stopContainer } from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
+import { avatarFor } from './avatar.server.ts';
+import type { Instance } from '../types.ts';
 
 /** Live, in-memory boot state for an instance (logs + SSE subscribers). */
 interface LiveState {
@@ -61,7 +63,7 @@ export function subscribeLogs(id: string, onChunk: (chunk: string) => void): () 
 // mutation. Subscribers receive the full list as their first message.
 
 interface InstancesHub {
-  listeners: Set<(list: InstanceRow[]) => void>;
+  listeners: Set<(list: Instance[]) => void>;
   timer: ReturnType<typeof setInterval> | null;
   lastJson: string;
 }
@@ -90,7 +92,7 @@ export function triggerReconcile(): void {
 }
 
 /** Subscribe to the live instance list; the callback fires immediately with current state. */
-export function subscribeInstances(cb: (list: InstanceRow[]) => void): () => void {
+export function subscribeInstances(cb: (list: Instance[]) => void): () => void {
   hub.listeners.add(cb);
   if (!hub.timer) hub.timer = setInterval(() => void reconcileAndBroadcast(), 3000);
   void listInstances().then(cb);
@@ -193,7 +195,7 @@ export async function createInstance(sourcePath: string, name?: string): Promise
 }
 
 /** List instances, reconciling persisted status against the live Docker state. */
-export async function listInstances(): Promise<InstanceRow[]> {
+export async function listInstances(): Promise<Instance[]> {
   const rows = allInstances();
   await Promise.all(
     rows.map(async (row) => {
@@ -206,7 +208,7 @@ export async function listInstances(): Promise<InstanceRow[]> {
       }
     }),
   );
-  return rows;
+  return rows.map((row) => ({ ...row, avatar: avatarFor(row.id) }));
 }
 
 export async function startInstance(id: string): Promise<InstanceRow> {
