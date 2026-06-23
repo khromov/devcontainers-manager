@@ -14,7 +14,7 @@ import {
 import { isRunning, removeContainer, startContainer, stopContainer } from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
-import { avatarFor } from './avatar.server.ts';
+import { avatarFor, forgetAvatar } from './avatar.server.ts';
 import type { Instance } from '../types.ts';
 
 /** Live, in-memory boot state for an instance (logs + SSE subscribers). */
@@ -237,5 +237,6 @@ export async function deleteInstance(id: string): Promise<void> {
   await rm(join(INSTANCES_DIR, id), { recursive: true, force: true });
   deleteInstanceRow(id);
   registry.delete(id);
+  forgetAvatar(id);
   triggerReconcile();
 }
