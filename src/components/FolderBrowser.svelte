@@ -229,7 +229,10 @@
   .recent {
     padding: 8px;
     border-bottom: 1px solid var(--rule);
-    max-height: 220px;
+    /* Don't let the folder list squish this; grow with content up to ~half the
+       picker, then scroll. */
+    flex-shrink: 0;
+    max-height: 40vh;
     overflow: auto;
   }
   .recent-label {
