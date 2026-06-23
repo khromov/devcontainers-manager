@@ -3,7 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mochi minimal</title>
+    <title>Devcontainers Manager</title>
+    <style>
+      :root {
+        --bg: #f1ecdf;
+        --bg-card: #fbf8f1;
+        --ink: #2a2825;
+        --ink-soft: #6b665e;
+        --ink-faint: #a39e94;
+        --rule: #e6e0d2;
+        --green-700: #385c47;
+        --green-600: #4a7159;
+        --green-200: #d6e4d8;
+        --green-100: #e8efe5;
+        --red-600: #b4452f;
+        --red-100: #f6e3dd;
+        --amber-600: #9a6a1e;
+        --amber-100: #f3e7cf;
+        --font-serif: 'Fraunces Variable', serif;
+        --font-sans: 'Public Sans Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background: radial-gradient(1200px 600px at 50% -10%, rgba(56, 92, 71, 0.1), transparent 60%), var(--bg);
+        color: var(--ink);
+        font-size: 15px;
+        line-height: 1.55;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+    </style>
     {{mochi.head}} {{mochi.css}}
   </head>
   <body>
