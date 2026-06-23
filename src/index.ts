@@ -1,15 +1,35 @@
 import { Mochi, silenceInternalRoutes } from 'mochi-framework';
 import { routes } from './routes.ts';
+import { basicAuth } from './lib/auth.server.ts';
+import { handleProxyRequest, PROXY_PREFIX } from './lib/proxy.server.ts';
+import { BASIC_AUTH_PASSWORD } from './lib/config.server.ts';
 
 const PORT = Number(process.env.PORT) || 3333;
+
+if (!BASIC_AUTH_PASSWORD) {
+  console.warn('⚠ BASIC_AUTH_PASSWORD is not set — the UI and all instances are unprotected.');
+}
 
 await Mochi.serve({
   port: PORT,
   development: process.env.MODE === 'development',
   htmlShell: './src/shell.html',
-  trailingSlash: 'never',
+  // Trailing-slash normalization is disabled entirely: the proxy does its own
+  // bare-`/p/<id>` → `/p/<id>/` redirect (code-server needs the slash), and we
+  // don't want Mochi's global policy touching proxy paths at all.
+  // Gate the whole app (UI, APIs, proxy) behind one Basic Auth password.
+  handle: basicAuth,
+  // Catch-all reverse proxy: anything under /p/<id>/ goes to that instance's
+  // code-server; other unmatched paths 404.
+  fetch: async (req, server) =>
+    (await handleProxyRequest(req, server)) ?? new Response('Not found', { status: 404 }),
   filters: {
     'consoleLogger:line': silenceInternalRoutes,
+    // Belt-and-suspenders: trailingSlash is off above, so this never fires
+    // today. It stays as a guard — if the policy is ever re-enabled, proxy
+    // paths under /p/ remain exempt so code-server's subpath isn't broken.
+    'trailingSlash:redirect': (computed, { url }) =>
+      url.pathname.startsWith(PROXY_PREFIX + '/') ? null : computed,
   },
   routes,
 });

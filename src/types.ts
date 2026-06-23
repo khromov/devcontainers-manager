@@ -20,9 +20,12 @@ export interface Preflight {
   claudeAuth: boolean;
 }
 
-/** Local URL for an instance's code-server, opening the project folder when known. */
+/**
+ * Same-origin path to an instance's code-server, proxied through the manager
+ * and gated by the app's Basic Auth. Opens the project folder when known.
+ */
 export function ideUrl(instance: Instance): string {
-  const base = `http://localhost:${instance.host_port}/`;
+  const base = `/p/${instance.id}/`;
   return instance.remote_workspace_folder
     ? `${base}?folder=${encodeURIComponent(instance.remote_workspace_folder)}`
     : base;

@@ -152,8 +152,9 @@ export async function writeOverrideConfig(workspaceDir: string, hostPort: number
     [CODE_SERVER_FEATURE]: { host: '0.0.0.0', port: CODE_SERVER_PORT, auth: 'none' },
   };
 
-  // Publish the in-container code-server port on a unique host port.
-  const portMapping = `${hostPort}:${CODE_SERVER_PORT}`;
+  // Publish the in-container code-server port on a unique host port, bound to
+  // loopback only — instances are reachable solely via the authed Mochi proxy.
+  const portMapping = `127.0.0.1:${hostPort}:${CODE_SERVER_PORT}`;
   const existingPorts = config.appPort;
   const ports = new Set<number | string>();
   if (Array.isArray(existingPorts)) existingPorts.forEach((p) => ports.add(p));
