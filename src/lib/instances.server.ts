@@ -163,7 +163,7 @@ async function boot(row: InstanceRow): Promise<void> {
       appendLog(row.id, '⚠ No Claude Code credentials found on host; skipped auth injection\n');
     }
 
-    appendLog(row.id, `\n✓ Instance running on http://localhost:${row.host_port}\n`);
+    appendLog(row.id, `\n✓ Instance running — open it via the proxy at /p/${row.id}/\n`);
   } catch (err) {
     const message = (err as Error).message;
     updateInstance(row.id, { status: 'error', error: message });

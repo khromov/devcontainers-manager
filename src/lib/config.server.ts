@@ -20,6 +20,13 @@ export const CODE_SERVER_PORT = 8080;
 /** Image used when a selected folder has no .devcontainer/devcontainer.json. */
 export const DEFAULT_IMAGE = 'mcr.microsoft.com/devcontainers/universal:2';
 
+/**
+ * HTTP Basic Auth gate for the whole app (UI, APIs, and the code-server proxy).
+ * When BASIC_AUTH_PASSWORD is unset/empty the gate is disabled (local dev).
+ */
+export const BASIC_AUTH_USERNAME = process.env.BASIC_AUTH_USERNAME || 'admin';
+export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
+
 /** Directories skipped when copying a source folder into an instance workspace. */
 export const COPY_IGNORE = new Set(['node_modules', '.git']);
 
