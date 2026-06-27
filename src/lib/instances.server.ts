@@ -12,7 +12,13 @@ import {
   type InstanceRow,
   type InstanceStatus,
 } from './db.server.ts';
-import { isRunning, removeContainer, startContainer, stopContainer } from './docker.server.ts';
+import {
+  isRunning,
+  markGitSafeDirectory,
+  removeContainer,
+  startContainer,
+  stopContainer,
+} from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
 import { injectGhCredentials, readGhCredentials } from './gh.server.ts';
@@ -148,6 +154,10 @@ async function boot(row: InstanceRow): Promise<void> {
       status: 'running',
       error: null,
     });
+
+    // The copied .git is owned by the host UID, so let the container user use it.
+    const safe = await markGitSafeDirectory(result.containerId, result.remoteUser);
+    if (!safe.ok) appendLog(row.id, `⚠ git safe.directory setup failed: ${safe.error}\n`);
 
     // Containers are throwaway, so copy the host's Claude Code auth into each one.
     const creds = await readClaudeCredentials();
