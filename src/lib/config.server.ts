@@ -27,8 +27,12 @@ export const DEFAULT_IMAGE = 'mcr.microsoft.com/devcontainers/universal:2';
 export const BASIC_AUTH_USERNAME = process.env.BASIC_AUTH_USERNAME || 'admin';
 export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
 
-/** Directories skipped when copying a source folder into an instance workspace. */
-export const COPY_IGNORE = new Set(['node_modules', '.git']);
+/**
+ * Directories skipped when copying a source folder into an instance workspace.
+ * `.git` is intentionally kept so each instance retains its history/remote and
+ * `git pull`/`push` work (authenticated by the injected gh credentials).
+ */
+export const COPY_IGNORE = new Set(['node_modules']);
 
 /** Resolve the bundled @devcontainers/cli binary, preferring the local install. */
 export function devcontainerBin(): string {
