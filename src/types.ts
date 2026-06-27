@@ -21,6 +21,8 @@ export interface AuthProvider {
   available: boolean;
   /** Where the credential was found (keystore entry or file path), null if absent. */
   source: string | null;
+  /** Short instruction shown when absent, e.g. "run `gh auth login`". */
+  hint?: string;
 }
 
 export interface Preflight {

@@ -30,7 +30,8 @@
     if (provider.available) {
       toast.success(`${provider.label} credentials come from ${provider.source}.`);
     } else {
-      toast.error(`No ${provider.label} credentials found — run \`claude\` and sign in.`);
+      const hint = provider.hint ? ` — ${provider.hint}` : '';
+      toast.error(`No ${provider.label} credentials found${hint}.`);
     }
   }
 
@@ -149,7 +150,7 @@
               onclick={() => explainProvider(provider)}
               title={provider.available
                 ? `Credentials from ${provider.source}, copied into each new instance.`
-                : 'No credentials found on this computer — run `claude` and sign in.'}
+                : `No credentials found on this computer${provider.hint ? ` — ${provider.hint}` : ''}.`}
             >
               <span class="dot {provider.available ? 'on' : 'off'}"></span>
               <span class="cred-label">{provider.label}</span>

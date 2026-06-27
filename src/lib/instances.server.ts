@@ -15,6 +15,7 @@ import {
 import { isRunning, removeContainer, startContainer, stopContainer } from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
+import { injectGhCredentials, readGhCredentials } from './gh.server.ts';
 import { avatarFor, forgetAvatar } from './avatar.server.ts';
 import type { Instance } from '../types.ts';
 
@@ -161,6 +162,21 @@ async function boot(row: InstanceRow): Promise<void> {
       );
     } else {
       appendLog(row.id, '⚠ No Claude Code credentials found on host; skipped auth injection\n');
+    }
+
+    // Likewise copy the host's GitHub CLI auth so `gh` and git-over-HTTPS work.
+    const gh = await readGhCredentials();
+    if (gh) {
+      appendLog(row.id, 'Injecting GitHub CLI credentials…\n');
+      const injected = await injectGhCredentials(result.containerId, result.remoteUser, gh);
+      appendLog(
+        row.id,
+        injected.ok
+          ? '✓ GitHub CLI authorized in container\n'
+          : `⚠ gh auth injection failed: ${injected.error}\n`,
+      );
+    } else {
+      appendLog(row.id, '⚠ No GitHub CLI credentials found on host; skipped gh injection\n');
     }
 
     appendLog(row.id, `\n✓ Instance running — open it via the proxy at /p/${row.id}/\n`);

@@ -2,6 +2,7 @@ import { Mochi, apiError, error, json, type MochiRouteValue } from 'mochi-framew
 import { dockerAvailable } from './lib/docker.server.ts';
 import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
 import { claudeAuthStatus } from './lib/claude.server.ts';
+import { ghAuthStatus } from './lib/gh.server.ts';
 import { browse } from './lib/picker.server.ts';
 import {
   createInstance,
@@ -17,17 +18,31 @@ import { deleteFolderHistory, getInstance, listFolderHistory } from './lib/db.se
 import { proxyRoutes } from './lib/proxy.server.ts';
 
 async function preflight() {
-  const [docker, cli, claude] = await Promise.all([
+  const [docker, cli, claude, gh] = await Promise.all([
     dockerAvailable(),
     devcontainerCliAvailable(),
     claudeAuthStatus(),
+    ghAuthStatus(),
   ]);
   return {
     docker,
     cli,
     // Provider-agnostic so the UI can list more authorizations later.
     auth: [
-      { id: 'claude-code', label: 'Claude Code', available: claude.available, source: claude.source },
+      {
+        id: 'claude-code',
+        label: 'Claude Code',
+        available: claude.available,
+        source: claude.source,
+        hint: 'run `claude` and sign in',
+      },
+      {
+        id: 'github-cli',
+        label: 'GitHub CLI',
+        available: gh.available,
+        source: gh.source,
+        hint: 'run `gh auth login`',
+      },
     ],
   };
 }
