@@ -76,7 +76,7 @@
 
   <div class="logwrap">
     <div class="logbar">Boot log</div>
-    <div class="logs" {@attach autoscroll}><pre>{logs || 'Waiting for output…'}</pre></div>
+    <div class="logs" {@attach autoscroll}><pre>{logs || 'Waiting for output…'}<span class="caret"></span></pre></div>
     {#if instance?.status === 'error' && instance.error}
       <div class="err">{instance.error}</div>
     {/if}
@@ -95,56 +95,82 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--ink-soft);
     text-decoration: none;
-    font-size: 14px;
+    font-size: 12px;
   }
   .back:hover {
-    color: var(--green-700);
+    color: var(--ink);
   }
   .title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex: 1;
   }
   .name {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
+  /* Monochrome theme: status reads via fill/pattern/animation, not hue. */
   .status {
     font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 999px;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 7px;
+    border: 1px solid var(--ink);
   }
   .status.running {
-    background: var(--green-100);
-    color: var(--green-700);
+    background: var(--ink);
+    color: var(--bg);
   }
   .status.stopped {
-    background: var(--rule);
+    background: transparent;
     color: var(--ink-soft);
+    border-color: var(--ink-faint);
   }
   .status.creating {
-    background: var(--amber-100);
-    color: var(--amber-600);
+    background: var(--ink);
+    color: var(--bg);
+    animation: lcd-blink 1.1s steps(1) infinite;
   }
   .status.error {
-    background: var(--red-100);
-    color: var(--red-600);
+    background: repeating-linear-gradient(45deg, var(--ink) 0 3px, transparent 3px 6px);
+    color: var(--ink);
+    border-width: 2px;
+    font-weight: 700;
+  }
+  @keyframes lcd-blink {
+    50% {
+      background: transparent;
+      color: var(--ink);
+    }
   }
   .open {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 13px;
-    color: var(--green-700);
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink);
     text-decoration: none;
-    border: 1px solid var(--green-200);
+    border: 1px solid var(--ink);
     padding: 7px 12px;
-    border-radius: 8px;
+  }
+  .open:hover {
+    background: var(--ink);
+    color: var(--bg);
   }
   .stage {
     max-width: 1200px;
@@ -159,8 +185,9 @@
     margin-bottom: 18px;
   }
   .meta .k {
-    font-family: var(--font-serif);
-    font-size: 11px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--ink-faint);
@@ -173,10 +200,9 @@
   .skel {
     display: inline-block;
     height: 0.95em;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--rule) 25%, var(--bg-card) 50%, var(--rule) 75%);
+    background: linear-gradient(90deg, var(--rule-soft) 25%, var(--bg-card) 50%, var(--rule-soft) 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
+    animation: shimmer 1.4s steps(6) infinite;
     vertical-align: middle;
   }
   .skel-wide {
@@ -199,21 +225,27 @@
     }
   }
   .logwrap {
-    border: 1px solid var(--rule);
-    border-radius: 12px;
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
     overflow: hidden;
   }
   .logbar {
-    padding: 10px 14px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--rule);
-    font-family: var(--font-mono);
+    padding: 9px 14px;
+    background: var(--ink);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 700;
     font-size: 12px;
-    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
   }
+  /* The one "screen": a black LCD panel with faint scanlines. */
   .logs {
-    background: #1e1c19;
-    color: #e7e0d4;
+    position: relative;
+    background:
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px),
+      #0d0e0a;
+    color: #d8d9cf;
     padding: 14px;
     height: calc(100vh - 320px);
     min-height: 360px;
@@ -227,10 +259,22 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
+  /* Blinking block cursor — the live-terminal tell. */
+  .caret {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.05em;
+    margin-left: 2px;
+    background: #d8d9cf;
+    vertical-align: text-bottom;
+    animation: lcd-blink 1.05s steps(1) infinite;
+  }
   .err {
     padding: 12px 14px;
-    background: var(--red-100);
-    color: var(--red-600);
+    background: var(--bg-card);
+    color: var(--ink);
+    border-top: 2px solid var(--ink);
+    font-family: var(--font-mono);
     font-size: 13px;
   }
 </style>

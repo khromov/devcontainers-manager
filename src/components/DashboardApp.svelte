@@ -124,6 +124,16 @@
     stopped: 'Stopped',
     error: 'Error',
   };
+
+  // One- or two-letter monogram for the square LCD avatar tile, derived from
+  // the instance name (no server-side avatar needed for the monochrome theme).
+  function initials(name: string): string {
+    const parts = name.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const [first, second] = parts;
+    if (!first) return '··';
+    if (!second) return first.slice(0, 2).toUpperCase();
+    return (first.charAt(0) + second.charAt(0)).toUpperCase();
+  }
 </script>
 
 <header class="topbar">
@@ -197,8 +207,7 @@
       {#each instances as instance (instance.id)}
         <li class="card">
           <div class="card-head">
-            <!-- Trusted: server-generated SVG from boring-avatars-vanilla, seeded by instance id (avatar.server.ts) -->
-            <span class="avatar">{@html instance.avatar}</span>
+            <span class="avatar">{initials(instance.name)}</span>
             <div class="name">{instance.name}</div>
             <span class="status {instance.status}">{statusLabel[instance.status]}</span>
           </div>
@@ -231,23 +240,30 @@
   <FolderBrowser onpick={createFrom} onclose={() => (browserOpen = false)} />
 {/if}
 
-<Toaster />
+<Toaster
+  toastOptions={{
+    style:
+      'border:1px solid #14150f; background:#e7e8e2; color:#14150f; box-shadow:4px 4px 0 #14150f; font-family:var(--font-mono); font-size:13px;',
+  }}
+/>
 
 <style>
   .topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 28px;
+    padding: 18px 28px;
     border-bottom: 1px solid var(--rule);
   }
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 20px;
+    gap: 11px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
   .logo {
     display: inline-flex;
@@ -259,16 +275,19 @@
     padding: 28px 24px 80px;
   }
   .banner {
-    border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 20px;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 13px;
   }
   .banner.error {
-    background: var(--red-100);
-    color: var(--red-600);
+    background: var(--bg-card);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
   }
   .topbar-actions {
     display: inline-flex;
@@ -283,26 +302,29 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     font-size: 14px;
     line-height: 1;
-    border: 0;
-    border-radius: 999px;
-    color: #fff;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
     cursor: pointer;
   }
   .cred:hover {
-    filter: brightness(0.94);
+    background: var(--bg);
+    color: var(--ink);
   }
-  .cred.ok {
-    background: var(--green-700);
-  }
+  /* Auth states differ by fill pattern, not hue: ok = solid, warn = hatch,
+     error = outline-only. */
   .cred.warn {
-    background: var(--amber-600);
+    background:
+      repeating-linear-gradient(45deg, var(--ink) 0 2px, var(--bg) 2px 5px);
+    color: var(--bg);
   }
   .cred.error {
-    background: var(--red-600);
+    background: var(--bg);
+    color: var(--ink);
   }
   .cred-dropdown {
     position: absolute;
@@ -312,18 +334,16 @@
     min-width: 220px;
     padding: 6px;
     background: var(--bg-card);
-    border: 1px solid var(--rule);
-    border-radius: 12px;
-    box-shadow: 0 18px 36px -22px rgba(42, 40, 37, 0.32);
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
   }
   .cred-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     width: 100%;
     padding: 7px 9px;
     border: 0;
-    border-radius: 8px;
     background: transparent;
     color: var(--ink);
     text-align: left;
@@ -332,19 +352,23 @@
     cursor: pointer;
   }
   .cred-row:hover {
-    background: var(--rule);
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .cred-row:hover .cred-state {
+    color: var(--bg);
   }
   .dot {
     flex: none;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    width: 9px;
+    height: 9px;
+    border: 1px solid currentColor;
   }
   .dot.on {
-    background: var(--green-700);
+    background: currentColor;
   }
   .dot.off {
-    background: var(--amber-600);
+    background: transparent;
   }
   .cred-state {
     margin-left: auto;
@@ -355,9 +379,12 @@
     padding: 80px 20px;
   }
   .empty-title {
-    font-family: var(--font-serif);
-    font-size: 24px;
-    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 8px;
   }
   .empty-sub {
     color: var(--ink-soft);
@@ -373,59 +400,84 @@
   }
   .card {
     background: var(--bg-card);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    padding: 18px 18px 16px;
-    box-shadow: 0 18px 36px -28px rgba(42, 40, 37, 0.22);
+    border: 1px solid var(--ink);
+    padding: 16px 16px 14px;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: transform 0.08s steps(2), box-shadow 0.08s steps(2);
+  }
+  .card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 6px 6px 0 var(--ink);
   }
   .card-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: 11px;
   }
   .avatar {
-    display: inline-flex;
+    display: grid;
+    place-items: center;
     flex: none;
     width: 40px;
     height: 40px;
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .avatar :global(svg) {
-    display: block;
+    border: 1px solid var(--ink);
+    background: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
   }
   .name {
     flex: 1;
     min-width: 0;
+    font-family: var(--font-mono);
     font-weight: 600;
-    font-size: 16px;
+    font-size: 15px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Monochrome theme: status reads via fill/pattern/animation, not hue. */
   .status {
     font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 999px;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 7px;
+    border: 1px solid var(--ink);
     white-space: nowrap;
   }
   .status.running {
-    background: var(--green-100);
-    color: var(--green-700);
+    background: var(--ink);
+    color: var(--bg);
   }
   .status.stopped {
-    background: var(--rule);
+    background: transparent;
     color: var(--ink-soft);
+    border-color: var(--ink-faint);
   }
   .status.creating {
-    background: var(--amber-100);
-    color: var(--amber-600);
+    background: var(--ink);
+    color: var(--bg);
+    animation: lcd-blink 1.1s steps(1) infinite;
   }
   .status.error {
-    background: var(--red-100);
-    color: var(--red-600);
+    background: repeating-linear-gradient(
+      45deg,
+      var(--ink) 0 3px,
+      transparent 3px 6px
+    );
+    color: var(--ink);
+    border-width: 2px;
+    font-weight: 700;
+  }
+  @keyframes lcd-blink {
+    50% {
+      background: transparent;
+      color: var(--ink);
+    }
   }
   .path {
     margin-top: 10px;
@@ -444,10 +496,11 @@
   }
   .card-error {
     margin-top: 10px;
+    font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--red-600);
-    background: var(--red-100);
-    border-radius: 8px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--ink);
     padding: 8px 10px;
     max-height: 80px;
     overflow: auto;
@@ -459,57 +512,75 @@
     gap: 8px;
   }
   .btn {
-    font: inherit;
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     padding: 7px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--rule);
-    background: #fff;
+    border: 1px solid var(--ink);
+    background: var(--bg-card);
     color: var(--ink);
     cursor: pointer;
     text-decoration: none;
   }
   .btn:hover {
-    border-color: var(--ink-faint);
+    background: var(--ink);
+    color: var(--bg);
   }
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
   .btn:disabled:hover {
-    border-color: var(--rule);
+    background: var(--bg-card);
+    color: var(--ink);
   }
   .btn.open {
-    background: var(--green-700);
-    color: #fff;
-    border-color: var(--green-700);
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .btn.open:hover {
+    background: var(--bg-card);
+    color: var(--ink);
   }
   .btn.ghost {
     background: transparent;
+    border-style: dashed;
   }
-  .btn.danger {
-    color: var(--red-600);
+  .btn.ghost:hover {
+    border-style: solid;
   }
   .btn.danger:hover:not(:disabled) {
-    border-color: var(--red-600);
+    background: repeating-linear-gradient(
+      45deg,
+      var(--ink) 0 3px,
+      transparent 3px 6px
+    );
+    color: var(--ink);
   }
   .primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    font: inherit;
-    font-weight: 600;
-    font-size: 14px;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     padding: 9px 16px;
-    border-radius: 10px;
-    border: 1px solid var(--green-700);
-    background: var(--green-700);
-    color: #fff;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
     cursor: pointer;
   }
+  .primary:hover:not(:disabled) {
+    background: var(--bg-card);
+    color: var(--ink);
+  }
   .primary:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 </style>

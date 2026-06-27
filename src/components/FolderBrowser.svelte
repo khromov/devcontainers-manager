@@ -184,7 +184,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(42, 40, 37, 0.4);
+    background: rgba(20, 21, 15, 0.5);
     display: grid;
     place-items: center;
     padding: 24px;
@@ -196,22 +196,26 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-card);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
+    border: 1px solid var(--ink);
     overflow: hidden;
-    box-shadow: 0 40px 80px -30px rgba(42, 40, 37, 0.5);
+    box-shadow: 8px 8px 0 var(--ink);
   }
   .head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--rule);
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--ink);
+    background: var(--ink);
   }
   .head h2 {
     margin: 0;
-    font-family: var(--font-serif);
-    font-size: 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 17px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bg);
   }
   .x {
     display: inline-flex;
@@ -219,11 +223,14 @@
     border: none;
     background: none;
     cursor: pointer;
-    color: var(--ink-soft);
+    color: var(--bg);
+  }
+  .x:hover {
+    opacity: 0.7;
   }
   .crumbs {
     padding: 10px 18px;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-soft);
     overflow: auto;
   }
   .crumbs code {
@@ -234,7 +241,7 @@
   }
   .recent {
     padding: 8px;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-soft);
     /* Don't let the folder list squish this; grow with content up to ~half the
        picker, then scroll. */
     flex-shrink: 0;
@@ -269,7 +276,11 @@
     color: var(--ink);
   }
   .recent-pick:hover {
-    background: var(--green-100);
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .recent-pick:hover .recent-path {
+    color: var(--bg);
   }
   .recent-text {
     display: flex;
@@ -309,17 +320,19 @@
     opacity: 1;
   }
   .recent-x:hover {
-    color: var(--red-600);
-    background: var(--green-100);
+    color: var(--bg);
+    background: var(--ink);
   }
   .recent-toggle {
     margin: 4px 6px 2px;
     border: none;
     background: none;
     cursor: pointer;
-    font: inherit;
+    font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--green-700);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink);
     padding: 4px 6px;
   }
   .recent-toggle:hover {
@@ -327,21 +340,23 @@
   }
   .search {
     padding: 10px 18px;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-soft);
   }
   .search input {
     width: 100%;
-    font: inherit;
+    font-family: var(--font-mono);
     font-size: 13px;
     padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--rule);
-    background: #fff;
+    border: 1px solid var(--ink);
+    background: var(--bg);
     color: var(--ink);
+  }
+  .search input::placeholder {
+    color: var(--ink-faint);
   }
   .search input:focus {
     outline: none;
-    border-color: var(--green-600);
+    box-shadow: inset 3px 3px 0 var(--rule-soft);
   }
   .list {
     flex: 1;
@@ -370,7 +385,12 @@
   }
   .row .nav:hover,
   .row.up:hover {
-    background: var(--green-100);
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .row .nav:hover .icon,
+  .row.up:hover .icon {
+    color: var(--bg);
   }
   .ename {
     overflow: hidden;
@@ -379,24 +399,34 @@
   }
   .badge {
     font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--green-700);
-    background: var(--green-100);
-    padding: 2px 6px;
-    border-radius: 999px;
+    font-weight: 600;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--ink);
+    padding: 2px 5px;
+  }
+  .row .nav:hover .badge {
+    color: var(--bg);
+    border-color: var(--bg);
   }
   .pick-inline {
-    font: inherit;
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     padding: 6px 10px;
-    border-radius: 7px;
-    border: 1px solid var(--rule);
-    background: #fff;
+    border: 1px solid var(--ink);
+    background: var(--bg-card);
     cursor: pointer;
-    color: var(--green-700);
+    color: var(--ink);
   }
   .pick-inline:hover {
-    border-color: var(--green-700);
+    background: var(--ink);
+    color: var(--bg);
   }
   .muted {
     padding: 18px;
@@ -404,17 +434,23 @@
     text-align: center;
   }
   .muted.err {
-    color: var(--red-600);
+    color: var(--ink);
+    font-weight: 600;
   }
   .warn {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     padding: 10px 18px;
-    background: var(--amber-100);
-    color: var(--amber-600);
+    background: repeating-linear-gradient(
+      45deg,
+      var(--rule-soft) 0 6px,
+      var(--bg-card) 6px 12px
+    );
+    color: var(--ink);
+    font-family: var(--font-mono);
     font-size: 12.5px;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--ink);
   }
   .warn :global(svg) {
     flex: none;
@@ -423,9 +459,9 @@
   .warn code {
     font-family: var(--font-mono);
     font-size: 0.9em;
-    background: rgba(154, 106, 30, 0.12);
-    padding: 1px 5px;
-    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    padding: 0 5px;
   }
   .foot {
     display: flex;
@@ -433,26 +469,32 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 18px;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--ink);
   }
   .hint {
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--ink-faint);
   }
   .primary {
-    font: inherit;
-    font-weight: 600;
-    font-size: 14px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     padding: 9px 16px;
-    border-radius: 10px;
-    border: 1px solid var(--green-700);
-    background: var(--green-700);
-    color: #fff;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
     cursor: pointer;
     white-space: nowrap;
   }
+  .primary:hover:not(:disabled) {
+    background: var(--bg-card);
+    color: var(--ink);
+  }
   .primary:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
   .icon {

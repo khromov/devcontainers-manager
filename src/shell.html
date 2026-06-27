@@ -6,33 +6,49 @@
     <title>Devcontainers Manager</title>
     <style>
       :root {
-        --bg: #f1ecdf;
-        --bg-card: #fbf8f1;
-        --ink: #2a2825;
-        --ink-soft: #6b665e;
-        --ink-faint: #a39e94;
-        --rule: #e6e0d2;
-        --green-700: #385c47;
-        --green-600: #4a7159;
-        --green-200: #d6e4d8;
-        --green-100: #e8efe5;
-        --red-600: #b4452f;
-        --red-100: #f6e3dd;
-        --amber-600: #9a6a1e;
-        --amber-100: #f3e7cf;
-        --font-serif: 'Fraunces Variable', serif;
-        --font-sans: 'Public Sans Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+        /* === Black & white "LCD" theme — monochrome grayscale ramp === */
+        --bg: #d7d8d2; /* LCD panel base */
+        --bg-card: #e7e8e2; /* raised surface */
+        --ink: #14150f; /* near-black */
+        --ink-soft: #45463e;
+        --ink-faint: #7d7e74;
+        --rule: #20211a; /* hard near-black hairline borders */
+        --rule-soft: #b9bab2; /* subtle internal dividers */
+        /* Semantic accent vars remapped to grayscale so any un-edited
+           reference degrades to monochrome instead of leaking a hue. */
+        --green-700: #14150f;
+        --green-600: #14150f;
+        --green-200: #9a9b91;
+        --green-100: #c6c7bc;
+        --red-600: #14150f;
+        --red-100: #c6c7bc;
+        --amber-600: #14150f;
+        --amber-100: #c6c7bc;
+        /* Dot-matrix display font is the signature "LCD" move; everything
+           else is monospace. Aliases let existing component refs flip over. */
+        --font-display: 'Doto Variable', 'JetBrains Mono Variable', monospace;
         --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --font-serif: var(--font-display); /* headings/brand/labels → dot-matrix */
+        --font-sans: var(--font-mono); /* all body text → mono */
       }
       * {
         box-sizing: border-box;
       }
+      /* The whole theme is square — enforce it globally (covers third-party
+         widgets like the toaster too). Intentional, not a workaround. */
+      * {
+        border-radius: 0 !important;
+      }
       body {
         margin: 0;
         font-family: var(--font-sans);
-        background: radial-gradient(1200px 600px at 50% -10%, rgba(56, 92, 71, 0.1), transparent 60%), var(--bg);
+        /* Pale LCD panel with a faint pixel-grid matrix overlay. */
+        background:
+          repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px),
+          repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px),
+          var(--bg);
         color: var(--ink);
-        font-size: 15px;
+        font-size: 14px;
         line-height: 1.55;
         min-height: 100vh;
         -webkit-font-smoothing: antialiased;

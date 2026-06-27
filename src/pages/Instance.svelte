@@ -1,6 +1,5 @@
 <script lang="ts">
-  import '@fontsource-variable/fraunces';
-  import '@fontsource-variable/public-sans';
+  import '@fontsource-variable/doto';
   import '@fontsource-variable/jetbrains-mono';
   import InstanceView from '../components/InstanceView.svelte';
 
