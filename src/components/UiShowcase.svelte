@@ -2,7 +2,9 @@
   import { Plus } from '@lucide/svelte';
   import toast, { Toaster } from 'svelte-french-toast';
   import { avatars } from '../avatars/index.ts';
-  import type { AuthProvider } from '../types.ts';
+  import type { AuthProvider, Preflight } from '../types.ts';
+
+  let { preflight }: { preflight: Preflight } = $props();
   import Avatar from './Avatar.svelte';
   import Button from './Button.svelte';
   import Brand from './Brand.svelte';
@@ -27,21 +29,10 @@
   let btnLabel = $state('New Instance');
 
   // --- CredMenu controls ---
-  let providers = $state<AuthProvider[]>([
-    {
-      id: 'claude',
-      label: 'Claude Code',
-      available: true,
-      source: '~/.claude/.credentials.json',
-    },
-    {
-      id: 'github',
-      label: 'GitHub',
-      available: false,
-      source: null,
-      hint: 'run `gh auth login`',
-    },
-  ]);
+  // Seed from the server's real preflight so the menu mirrors `/`; the presets
+  // and checkboxes below then let you exercise the other aggregate states.
+  // svelte-ignore state_referenced_locally
+  let providers = $state<AuthProvider[]>($state.snapshot(preflight.auth));
   function presetCred(state: 'ok' | 'warn' | 'error') {
     providers.forEach((p, i) => {
       // warn = mixed: first provider on, the rest off.

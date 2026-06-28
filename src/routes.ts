@@ -216,7 +216,10 @@ export const routes: Record<string, MochiRouteValue> = {
   // Dev-only previews: every avatar sprite, and the UI component showcase.
   ...(process.env.MODE === 'development'
     ? {
-        '/ui': Mochi.page('./src/pages/UI.svelte'),
+        '/ui': Mochi.page('./src/pages/UI.svelte', {
+          // Feed the showcase the real auth providers so CredMenu mirrors `/`.
+          serverProps: async () => ({ preflight: await preflight() }),
+        }),
         '/ui/avatars': Mochi.page('./src/pages/Avatars.svelte'),
       }
     : {}),
