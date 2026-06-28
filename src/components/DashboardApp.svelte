@@ -2,7 +2,7 @@
   import { type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
   import Avatar from './Avatar.svelte';
-  import { Package, Check, TriangleAlert, X, Plus, GitBranch } from '@lucide/svelte';
+  import { Package, Check, TriangleAlert, X, Plus, GitBranch, Settings } from '@lucide/svelte';
   import toast, { Toaster } from 'svelte-french-toast';
   import type { AuthProvider } from '../types.ts';
 
@@ -168,6 +168,7 @@
 <header class="topbar">
   <div class="brand"><span class="logo"><Package size={22} /></span><span>Devcontainers Manager</span></div>
   <div class="topbar-actions">
+    <a class="cog" href="/settings" aria-label="Settings" title="Settings"><Settings size={16} /></a>
     <div class="cred-menu">
       <button
         class="cred {credState}"
@@ -343,6 +344,20 @@
     display: inline-flex;
     align-items: center;
     gap: 14px;
+  }
+  .cog {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--ink);
+    background: var(--bg-card);
+    color: var(--ink);
+  }
+  .cog:hover {
+    background: var(--ink);
+    color: var(--bg);
   }
   .cred-menu {
     position: relative;
