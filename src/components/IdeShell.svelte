@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ideUrl, type Instance } from '../types.ts';
   import { House, X, Settings } from '@lucide/svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import Avatar from './Avatar.svelte';
   import { playChime, unlockAudio } from '../sound.ts';
 
@@ -13,6 +14,13 @@
   const initial = running.some((i) => i.id === activeId) ? activeId : (running[0]?.id ?? '');
   let active = $state(initial);
   let closing = $state<string | null>(null);
+
+  // Instances whose iframe has been mounted at least once. We mount an IDE lazily on
+  // first activation, then keep it mounted (hidden via CSS) so its editor/connection survive.
+  const visited = new SvelteSet<string>(initial ? [initial] : []);
+  $effect(() => {
+    if (active) visited.add(active);
+  });
 
   // Live attention signal per instance, raised by the in-container Claude hook:
   // 'done' (task finished) pulses green, 'waiting' (needs input) pulses amber.
@@ -115,9 +123,9 @@
     <div class="panes">
       {#each running as inst (inst.id)}
         <div class="pane" class:active={inst.id === active}>
-          <!-- All running IDEs are mounted at once; inactive panes are hidden via
-               CSS so their code-server connection and editor state stay alive. -->
-          <iframe src={ideUrl(inst)} title={inst.name}></iframe>
+          {#if visited.has(inst.id)}
+            <iframe src={ideUrl(inst)} title={inst.name}></iframe>
+          {/if}
         </div>
       {/each}
     </div>
