@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ideUrl, type Instance, type Preflight } from '../types.ts';
+  import { type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
   import { Package, Check, TriangleAlert, X, Plus, GitBranch } from '@lucide/svelte';
   import toast, { Toaster } from 'svelte-french-toast';
@@ -223,9 +223,7 @@
           {/if}
           <div class="actions">
             {#if instance.status === 'running'}
-              <a class="btn open" href={ideUrl(instance)} target="_blank" rel="noopener">
-                Open IDE
-              </a>
+              <a class="btn open" href={`/ide/${instance.id}`}>Open IDE</a>
               <button class="btn" onclick={() => act(instance.id, 'stop')}>Stop</button>
             {:else if instance.status === 'stopped'}
               <button class="btn" onclick={() => act(instance.id, 'start')}>Start</button>

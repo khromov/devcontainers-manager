@@ -61,6 +61,16 @@ export const routes: Record<string, MochiRouteValue> = {
     },
   }),
 
+  // Tabbed IDE shell: one iframe per running instance, kept mounted so editor
+  // state survives tab switches. `running` is a snapshot at page load.
+  '/ide/:id': Mochi.page('./src/pages/IDE.svelte', {
+    serverProps: async (_req, params) => {
+      if (!params.id || !getInstance(params.id)) error(404, 'Instance not found');
+      const running = (await listInstances()).filter((i) => i.status === 'running');
+      return { activeId: params.id, running };
+    },
+  }),
+
   // Filesystem browser for picking a project folder.
   '/api/browse': Mochi.api(async ({ url }) => {
     try {
