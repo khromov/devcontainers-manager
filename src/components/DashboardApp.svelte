@@ -480,7 +480,7 @@
     background: transparent;
     color: var(--ink);
     text-align: left;
-    cursor: text;
+    cursor: pointer;
   }
   .name:hover {
     border-color: var(--ink-faint);

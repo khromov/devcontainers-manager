@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { name }: { name: string } = $props();
+  let { name, size = 40 }: { name: string; size?: number } = $props();
 
   // One- or two-letter monogram for the square LCD avatar tile, derived from
   // the instance name (no server-side avatar needed for the monochrome theme).
@@ -12,20 +12,20 @@
   }
 </script>
 
-<span class="avatar">{initials(name)}</span>
+<span
+  class="avatar"
+  style="width:{size}px;height:{size}px;font-size:{Math.round(size * 0.42)}px"
+>{initials(name)}</span>
 
 <style>
   .avatar {
     display: grid;
     place-items: center;
     flex: none;
-    width: 40px;
-    height: 40px;
     border: 1px solid var(--ink);
     background: var(--bg);
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 17px;
     letter-spacing: 0.02em;
     color: var(--ink);
   }

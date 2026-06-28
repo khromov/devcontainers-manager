@@ -36,7 +36,7 @@
         {#each running as inst (inst.id)}
           <div class="tab" class:active={inst.id === active}>
             <button type="button" class="tab-label" onclick={() => (active = inst.id)} title={inst.name}>
-              <Avatar name={inst.name} />
+              <Avatar name={inst.name} size={26} />
               <span class="tab-name">{inst.name}</span>
             </button>
             <button
@@ -123,8 +123,8 @@
   .tab-label {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 8px 0 8px;
+    gap: 10px;
+    padding: 0 10px 0 12px;
     max-width: 240px;
     font-size: 12px;
     text-transform: uppercase;
