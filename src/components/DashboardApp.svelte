@@ -2,13 +2,10 @@
   import { type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
   import InstanceCard from './InstanceCard.svelte';
-  import SettingsCog from './SettingsCog.svelte';
-  import CredMenu from './CredMenu.svelte';
+  import TopBar from './TopBar.svelte';
   import Button from './Button.svelte';
-  import Brand from './Brand.svelte';
-  import { Plus, Component } from '@lucide/svelte';
+  import { Plus } from '@lucide/svelte';
   import { Toaster } from 'svelte-french-toast';
-  import { isDev } from 'mochi-framework';
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -132,27 +129,14 @@
   };
 </script>
 
-<header class="topbar">
-  <Brand />
-  <div class="topbar-actions">
-    {#if isDev}
-      <Button variant="default" size="sm" icon={Component} href="/ui">UI</Button>
-    {/if}
-    <SettingsCog />
-    <CredMenu auth={preflight.auth} />
-    <Button variant="danger" size="sm" onclick={deleteAll} disabled={instances.length === 0}>
-      Delete all
-    </Button>
-    <Button
-      variant="primary"
-      icon={creating ? undefined : Plus}
-      onclick={() => (browserOpen = true)}
-      disabled={!ready || creating}
-    >
-      {creating ? 'Creating…' : 'New instance'}
-    </Button>
-  </div>
-</header>
+<TopBar
+  auth={preflight.auth}
+  canDelete={instances.length > 0}
+  {ready}
+  {creating}
+  onNew={() => (browserOpen = true)}
+  onDeleteAll={deleteAll}
+/>
 
 <main class="stage">
   {#if !ready}
@@ -207,13 +191,6 @@
 />
 
 <style>
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--rule);
-  }
   .stage {
     max-width: 1080px;
     margin: 0 auto;
@@ -233,11 +210,6 @@
     color: var(--ink);
     border: 2px solid var(--ink);
     box-shadow: 4px 4px 0 var(--ink);
-  }
-  .topbar-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
   }
   .empty {
     text-align: center;

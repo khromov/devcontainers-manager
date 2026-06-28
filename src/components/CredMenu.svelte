@@ -98,12 +98,16 @@
     background: var(--bg);
     color: var(--ink);
   }
-  /* Auth states differ by fill pattern, not hue: ok = solid, warn = hatch,
-     error = outline-only. */
+  /* Auth states: ok = solid ink, warn = tasteful yellow, error = outline-only. */
   .cred.warn {
-    background:
-      repeating-linear-gradient(45deg, var(--ink) 0 2px, var(--bg) 2px 5px);
-    color: var(--bg);
+    background: var(--warn-bg);
+    border-color: var(--warn-line);
+    color: var(--warn-ink);
+  }
+  .cred.warn:hover {
+    background: var(--warn-ink);
+    border-color: var(--warn-ink);
+    color: var(--warn-bg);
   }
   .cred.error {
     background: var(--bg);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Plus } from '@lucide/svelte';
-  import { Toaster } from 'svelte-french-toast';
+  import toast, { Toaster } from 'svelte-french-toast';
   import { avatars } from '../avatars/index.ts';
   import type { AuthProvider } from '../types.ts';
   import Avatar from './Avatar.svelte';
@@ -8,6 +8,7 @@
   import Brand from './Brand.svelte';
   import CredMenu from './CredMenu.svelte';
   import SettingsCog from './SettingsCog.svelte';
+  import TopBar from './TopBar.svelte';
   import ComponentDemo from './ui-showcase/ComponentDemo.svelte';
 
   // --- Avatar controls ---
@@ -50,6 +51,15 @@
 </script>
 
 <Toaster />
+
+<TopBar
+  auth={providers}
+  canDelete={true}
+  ready={true}
+  creating={false}
+  onNew={() => toast('New instance (demo)')}
+  onDeleteAll={() => toast('Delete all (demo)')}
+/>
 
 <main class="showcase">
   <header>
