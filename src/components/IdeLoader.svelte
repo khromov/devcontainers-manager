@@ -13,8 +13,8 @@
     // Honor reduced-motion: leave a static readout, skip the flicker interval.
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const timer = setInterval(() => {
-      grid = grid.map((row) => row.map((bit) => (Math.random() < 0.28 ? (bit ? 0 : 1) : bit)));
-    }, 110);
+      grid = grid.map((row) => row.map((bit) => (Math.random() < 0.4 ? (bit ? 0 : 1) : bit)));
+    }, 55);
     return () => clearInterval(timer);
   });
 </script>
