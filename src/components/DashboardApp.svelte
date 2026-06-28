@@ -4,6 +4,7 @@
   import InstanceCard from './InstanceCard.svelte';
   import SettingsCog from './SettingsCog.svelte';
   import CredMenu from './CredMenu.svelte';
+  import Button from './Button.svelte';
   import { Package, Plus } from '@lucide/svelte';
   import { Toaster } from 'svelte-french-toast';
 
@@ -134,12 +135,17 @@
   <div class="topbar-actions">
     <SettingsCog />
     <CredMenu auth={preflight.auth} />
-    <button class="btn danger" onclick={deleteAll} disabled={instances.length === 0}>
+    <Button variant="danger" size="sm" onclick={deleteAll} disabled={instances.length === 0}>
       Delete all
-    </button>
-    <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready || creating}>
-      {#if creating}Creating…{:else}<Plus size={15} /> New instance{/if}
-    </button>
+    </Button>
+    <Button
+      variant="primary"
+      icon={creating ? undefined : Plus}
+      onclick={() => (browserOpen = true)}
+      disabled={!ready || creating}
+    >
+      {creating ? 'Creating…' : 'New instance'}
+    </Button>
   </div>
 </header>
 
@@ -162,9 +168,9 @@
     <div class="empty">
       <p class="empty-title">No instances yet</p>
       <p class="empty-sub">Pick a project folder to spin up an isolated devcontainer.</p>
-      <button class="primary" onclick={() => (browserOpen = true)} disabled={!ready}>
-        <Plus size={15} /> New instance
-      </button>
+      <Button variant="primary" icon={Plus} onclick={() => (browserOpen = true)} disabled={!ready}>
+        New instance
+      </Button>
     </div>
   {:else}
     <ul class="grid">
@@ -265,78 +271,5 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 18px;
-  }
-  .btn {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 7px 12px;
-    border: 1px solid var(--ink);
-    background: var(--bg-card);
-    color: var(--ink);
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .btn:hover {
-    background: var(--ink);
-    color: var(--bg);
-  }
-  .btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .btn:disabled:hover {
-    background: var(--bg-card);
-    color: var(--ink);
-  }
-  .btn.danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-  .btn.danger:hover:not(:disabled) {
-    color: var(--danger);
-    background-color: var(--danger-soft);
-    border-color: transparent;
-    /* Slowly marching red "ants" border, drawn as four animated edge gradients. */
-    background-image:
-      linear-gradient(90deg, var(--danger) 50%, transparent 0),
-      linear-gradient(90deg, var(--danger) 50%, transparent 0),
-      linear-gradient(0deg, var(--danger) 50%, transparent 0),
-      linear-gradient(0deg, var(--danger) 50%, transparent 0);
-    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-    background-size: 14px 2px, 14px 2px, 2px 14px, 2px 14px;
-    background-position: 0 0, 0 100%, 0 0, 100% 0;
-    animation: marching-ants 2s linear infinite;
-  }
-  @keyframes marching-ants {
-    to {
-      background-position: 28px 0, -28px 100%, 0 -28px, 100% 28px;
-    }
-  }
-  .primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 9px 16px;
-    border: 1px solid var(--ink);
-    background: var(--ink);
-    color: var(--bg);
-    cursor: pointer;
-  }
-  .primary:hover:not(:disabled) {
-    background: var(--bg-card);
-    color: var(--ink);
-  }
-  .primary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 </style>
