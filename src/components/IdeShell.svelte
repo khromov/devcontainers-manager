@@ -3,6 +3,7 @@
   import { House, X, Settings } from '@lucide/svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import Avatar from './Avatar.svelte';
+  import IdeLoader from './IdeLoader.svelte';
   import { playChime, unlockAudio } from '../sound.ts';
 
   let { activeId, running }: { activeId: string; running: Instance[] } = $props();
@@ -21,6 +22,10 @@
   $effect(() => {
     if (active) visited.add(active);
   });
+
+  // Instances whose iframe has fired its `load` event. Until then we overlay a
+  // loader so switching to a freshly-mounted IDE shows a readout, not blank white.
+  const loaded = new SvelteSet<string>();
 
   // Live attention signal per instance, raised by the in-container Claude hook:
   // 'done' (task finished) pulses green, 'waiting' (needs input) pulses amber.
@@ -124,7 +129,10 @@
       {#each running as inst (inst.id)}
         <div class="pane" class:active={inst.id === active}>
           {#if visited.has(inst.id)}
-            <iframe src={ideUrl(inst)} title={inst.name}></iframe>
+            <iframe src={ideUrl(inst)} title={inst.name} onload={() => loaded.add(inst.id)}></iframe>
+            {#if !loaded.has(inst.id)}
+              <IdeLoader />
+            {/if}
           {/if}
         </div>
       {/each}
