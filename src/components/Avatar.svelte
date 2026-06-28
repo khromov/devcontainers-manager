@@ -1,32 +1,49 @@
 <script lang="ts">
-  let { name, size = 40 }: { name: string; size?: number } = $props();
+  import { pickAvatar, decode } from '../avatars/index.ts';
 
-  // One- or two-letter monogram for the square LCD avatar tile, derived from
-  // the instance name (no server-side avatar needed for the monochrome theme).
-  function initials(name: string): string {
-    const parts = name.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
-    const [first, second] = parts;
-    if (!first) return '··';
-    if (!second) return first.slice(0, 2).toUpperCase();
-    return (first.charAt(0) + second.charAt(0)).toUpperCase();
-  }
+  // `id` selects the artwork (deterministic, stable per instance); `name` is for
+  // accessibility. `size` is the tile's pixel footprint on screen.
+  let { id, name, size = 48 }: { id: string; name: string; size?: number } = $props();
+
+  // 256 intensities (0 off / 1 dim / 2 on), row-major, for the chosen 16×16 art.
+  const cells = $derived(decode(pickAvatar(id)));
 </script>
 
 <span
   class="avatar"
-  style="width:{size}px;height:{size}px;font-size:{Math.round(size * 0.42)}px"
->{initials(name)}</span>
+  role="img"
+  aria-label={name}
+  title={name}
+  style="width:{size}px;height:{size}px"
+>
+  {#each cells as cell, i (i)}
+    <span class="px" class:on={cell === 2} class:dim={cell === 1}></span>
+  {/each}
+</span>
 
 <style>
+  /* A 16×16 dot-matrix panel: each pixel is its own element, with a hairline gap
+     so the panel reads like a real LED/LCD grid. Monochrome LCD styling — lit
+     dots are ink, unlit dots are a faint tint of the panel. */
   .avatar {
     display: grid;
-    place-items: center;
+    grid-template-columns: repeat(16, 1fr);
+    grid-template-rows: repeat(16, 1fr);
+    gap: 1px;
     flex: none;
+    box-sizing: border-box;
+    padding: 2px;
     border: 1px solid var(--ink);
     background: var(--bg);
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--ink);
+  }
+  .px {
+    background: var(--rule-soft); /* unlit LED — faint */
+    border-radius: 0.5px;
+  }
+  .px.dim {
+    background: var(--ink-soft);
+  }
+  .px.on {
+    background: var(--ink);
   }
 </style>

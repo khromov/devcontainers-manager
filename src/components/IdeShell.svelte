@@ -36,7 +36,7 @@
         {#each running as inst (inst.id)}
           <div class="tab" class:active={inst.id === active}>
             <button type="button" class="tab-label" onclick={() => (active = inst.id)} title={inst.name}>
-              <Avatar name={inst.name} size={26} />
+              <Avatar id={inst.id} name={inst.name} size={26} />
               <span class="tab-name">{inst.name}</span>
             </button>
             <button

@@ -236,7 +236,7 @@
       {#each instances as instance (instance.id)}
         <li class="card">
           <div class="card-head">
-            <Avatar name={instance.name} />
+            <Avatar id={instance.id} name={instance.name} />
             {#if editingId === instance.id}
               <!-- svelte-ignore a11y_autofocus -->
               <input
