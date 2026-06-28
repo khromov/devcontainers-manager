@@ -1,44 +1,59 @@
 import { soundEnabled } from './settings.ts';
 
-/** Singleton AudioContext for the document; created lazily on first use/gesture. */
-let audioCtx: AudioContext | null = null;
+/** Chime name → URL of its pre-rendered WAV (served from `public/sounds/`).
+ * Generate/refresh these files with `bun run gen:chimes`. */
+const SOUNDS = {
+  done: '/sounds/done.wav', // brighter ascending pair
+  waiting: '/sounds/waiting.wav', // lower, more insistent
+} as const;
 
-function ctx(): AudioContext | null {
+type Chime = keyof typeof SOUNDS;
+
+/** Lazily-created <audio> elements, one per chime, reused across plays. */
+const elements: Partial<Record<Chime, HTMLAudioElement>> = {};
+let unlocked = false;
+
+function element(name: Chime): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
-  const Ctx =
-    window.AudioContext ??
-    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return null;
-  audioCtx ??= new Ctx();
-  if (audioCtx.state === 'suspended') void audioCtx.resume();
-  return audioCtx;
+  let el = elements[name];
+  if (!el) {
+    el = new Audio(SOUNDS[name]);
+    el.preload = 'auto';
+    elements[name] = el;
+  }
+  return el;
 }
 
-/** Create/resume the audio context. Call from a user-gesture handler so browsers
- * allow playback (audio is blocked until the page has been interacted with). */
+/** Prime each chime so later programmatic playback is allowed. Call from a
+ * user-gesture handler — browsers block audio until the page has been
+ * interacted with. A silent play/pause inside the gesture satisfies that. */
 export function unlockAudio(): void {
-  ctx();
+  if (unlocked || typeof window === 'undefined') return;
+  unlocked = true;
+  for (const name of Object.keys(SOUNDS) as Chime[]) {
+    const el = element(name);
+    if (!el) continue;
+    const { volume } = el;
+    el.volume = 0;
+    void el
+      .play()
+      .then(() => {
+        el.pause();
+        el.currentTime = 0;
+        el.volume = volume;
+      })
+      .catch(() => {
+        el.volume = volume;
+      });
+  }
 }
 
-/** Play a short synthesized attention chime, unless the user has muted sound.
- * 'done' is a brighter ascending pair; 'waiting' is lower and more insistent. */
-export function playChime(state: 'done' | 'waiting'): void {
+/** Play a short attention chime, unless the user has muted sound. */
+export function playChime(state: Chime): void {
   if (!soundEnabled()) return;
-  const audio = ctx();
-  if (!audio) return;
-  const notes = state === 'done' ? [660, 988] : [523, 415];
-  const start = audio.currentTime;
-  notes.forEach((freq, i) => {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    const t = start + i * 0.13;
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  });
+  const el = element(state);
+  if (!el) return;
+  el.currentTime = 0;
+  // Rejects if the page hasn't been interacted with yet; nothing to do but ignore.
+  void el.play().catch(() => {});
 }
