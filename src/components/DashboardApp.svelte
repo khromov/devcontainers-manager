@@ -6,8 +6,9 @@
   import CredMenu from './CredMenu.svelte';
   import Button from './Button.svelte';
   import Brand from './Brand.svelte';
-  import { Plus } from '@lucide/svelte';
+  import { Plus, Component } from '@lucide/svelte';
   import { Toaster } from 'svelte-french-toast';
+  import { isDev } from 'mochi-framework';
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -134,6 +135,9 @@
 <header class="topbar">
   <Brand />
   <div class="topbar-actions">
+    {#if isDev}
+      <Button variant="default" size="sm" icon={Component} href="/ui">UI</Button>
+    {/if}
     <SettingsCog />
     <CredMenu auth={preflight.auth} />
     <Button variant="danger" size="sm" onclick={deleteAll} disabled={instances.length === 0}>

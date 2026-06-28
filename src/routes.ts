@@ -213,8 +213,11 @@ export const routes: Record<string, MochiRouteValue> = {
   // HTTP+WS handler, and the WebSocket relay sentinel.
   ...proxyRoutes,
 
-  // Dev-only gallery of every avatar sprite, for eyeballing the catalog.
+  // Dev-only previews: every avatar sprite, and the UI component showcase.
   ...(process.env.MODE === 'development'
-    ? { '/avatars': Mochi.page('./src/pages/Avatars.svelte') }
+    ? {
+        '/ui': Mochi.page('./src/pages/UI.svelte'),
+        '/ui/avatars': Mochi.page('./src/pages/Avatars.svelte'),
+      }
     : {}),
 };
