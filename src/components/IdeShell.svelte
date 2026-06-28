@@ -1,7 +1,8 @@
 <script lang="ts">
   import { ideUrl, type Instance } from '../types.ts';
-  import { House, X } from '@lucide/svelte';
+  import { House, X, Settings } from '@lucide/svelte';
   import Avatar from './Avatar.svelte';
+  import { playChime, unlockAudio } from '../sound.ts';
 
   let { activeId, running }: { activeId: string; running: Instance[] } = $props();
 
@@ -19,45 +20,14 @@
 
   const activeInstance = $derived(running.find((i) => i.id === active));
 
-  // Web Audio chime for attention. Synthesized (no asset) and unlocked on first
-  // user gesture, since browsers block audio until the page has been interacted with.
-  let audioCtx: AudioContext | null = null;
-  function ensureAudio(): AudioContext | null {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return null;
-    audioCtx ??= new Ctx();
-    if (audioCtx.state === 'suspended') void audioCtx.resume();
-    return audioCtx;
-  }
-  function playChime(state: 'done' | 'waiting'): void {
-    const ctx = ensureAudio();
-    if (!ctx) return;
-    // 'done' = brighter ascending pair; 'waiting' = lower, more insistent pair.
-    const notes = state === 'done' ? [660, 988] : [523, 415];
-    const start = ctx.currentTime;
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const t = start + i * 0.13;
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.3);
-    });
-  }
-
-  // Unlock/resume the audio context on the first interaction with the page.
+  // Unlock/resume the chime's audio context on the first interaction with the page
+  // (browsers block audio until the page has been interacted with).
   $effect(() => {
-    const unlock = () => ensureAudio();
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
     return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
     };
   });
 
@@ -136,6 +106,7 @@
         {/each}
       </nav>
     {/if}
+    <a class="cog" href="/settings" title="Settings" aria-label="Settings"><Settings size={18} /></a>
   </header>
 
   {#if running.length === 0}
@@ -177,6 +148,20 @@
     border-right: 1px solid var(--rule);
   }
   .home:hover {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .cog {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    flex: none;
+    margin-left: auto;
+    color: var(--ink);
+    border-left: 1px solid var(--rule);
+  }
+  .cog:hover {
     background: var(--ink);
     color: var(--bg);
   }

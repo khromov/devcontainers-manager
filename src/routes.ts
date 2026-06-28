@@ -65,6 +65,8 @@ export const routes: Record<string, MochiRouteValue> = {
 
   // Tabbed IDE shell: one iframe per running instance, kept mounted so editor
   // state survives tab switches. `running` is a snapshot at page load.
+  '/settings': Mochi.page('./src/pages/Settings.svelte'),
+
   '/ide/:id': Mochi.page('./src/pages/IDE.svelte', {
     serverProps: async (_req, params) => {
       if (!params.id || !getInstance(params.id)) error(404, 'Instance not found');
