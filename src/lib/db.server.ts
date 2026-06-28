@@ -98,10 +98,14 @@ export function usedPorts(): number[] {
 
 export function updateInstance(
   id: string,
-  patch: Partial<Pick<InstanceRow, 'container_id' | 'remote_workspace_folder' | 'status' | 'error'>>,
+  patch: Partial<Pick<InstanceRow, 'name' | 'container_id' | 'remote_workspace_folder' | 'status' | 'error'>>,
 ): void {
   const sets: string[] = [];
   const params: Record<string, string | number | null> = { $id: id };
+  if ('name' in patch) {
+    sets.push('name = $name');
+    params.$name = patch.name ?? null;
+  }
   if ('container_id' in patch) {
     sets.push('container_id = $container_id');
     params.$container_id = patch.container_id ?? null;

@@ -244,6 +244,16 @@ export async function listInstances(): Promise<Instance[]> {
   return rows.map((row) => ({ ...row, git_branch: branches.get(row.id) ?? null }));
 }
 
+export function renameInstance(id: string, name: string): InstanceRow {
+  const row = getInstance(id);
+  if (!row) throw new Error('Instance not found');
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Name cannot be empty');
+  updateInstance(id, { name: trimmed });
+  triggerReconcile();
+  return getInstance(id)!;
+}
+
 export async function startInstance(id: string): Promise<InstanceRow> {
   const row = getInstance(id);
   if (!row) throw new Error('Instance not found');

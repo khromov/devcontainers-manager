@@ -36,7 +36,8 @@
         {#each running as inst (inst.id)}
           <div class="tab" class:active={inst.id === active}>
             <button type="button" class="tab-label" onclick={() => (active = inst.id)} title={inst.name}>
-              {inst.name}
+              <Avatar name={inst.name} />
+              <span class="tab-name">{inst.name}</span>
             </button>
             <button
               type="button"
@@ -51,11 +52,6 @@
           </div>
         {/each}
       </nav>
-    {/if}
-    {#if activeInstance}
-      <div class="who">
-        <Avatar name={activeInstance.name} />
-      </div>
     {/if}
   </header>
 
@@ -101,14 +97,6 @@
     background: var(--ink);
     color: var(--bg);
   }
-  .who {
-    display: inline-flex;
-    align-items: center;
-    margin-left: auto;
-    padding: 0 8px;
-    flex: none;
-    border-left: 1px solid var(--rule);
-  }
   .tabs {
     display: flex;
     align-items: stretch;
@@ -133,14 +121,19 @@
     font-family: var(--font-mono);
   }
   .tab-label {
-    padding: 0 8px 0 16px;
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px 0 8px;
+    max-width: 240px;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
+  }
+  .tab-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .tab-close {
     display: inline-flex;

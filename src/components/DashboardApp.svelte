@@ -14,6 +14,8 @@
   let creating = $state(false);
   let actionError = $state<string | null>(null);
   let credOpen = $state(false);
+  let editingId = $state<string | null>(null);
+  let editingName = $state('');
 
   // svelte-ignore state_referenced_locally
   const ready = preflight.docker && preflight.cli;
@@ -99,6 +101,42 @@
         throw new Error(data?.error?.message ?? `Failed to ${action}`);
       }
       // The SSE stream reflects the resulting state.
+    } catch (err) {
+      actionError = (err as Error).message;
+    }
+  }
+
+  function startRename(instance: Instance) {
+    editingId = instance.id;
+    editingName = instance.name;
+  }
+
+  function cancelRename() {
+    editingId = null;
+    editingName = '';
+  }
+
+  async function commitRename(id: string) {
+    const name = editingName.trim();
+    const original = instances.find((i) => i.id === id)?.name;
+    // Nothing to do on an empty or unchanged name — just close the editor.
+    if (!name || name === original) {
+      cancelRename();
+      return;
+    }
+    cancelRename();
+    actionError = null;
+    try {
+      const res = await fetch(`/api/instances/${id}/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: { message: string } } | null;
+        throw new Error(data?.error?.message ?? 'Failed to rename');
+      }
+      // The SSE stream reflects the new name.
     } catch (err) {
       actionError = (err as Error).message;
     }
@@ -199,7 +237,25 @@
         <li class="card">
           <div class="card-head">
             <Avatar name={instance.name} />
-            <div class="name">{instance.name}</div>
+            {#if editingId === instance.id}
+              <!-- svelte-ignore a11y_autofocus -->
+              <input
+                class="name-edit"
+                bind:value={editingName}
+                autofocus
+                onblur={() => commitRename(instance.id)}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                  else if (e.key === 'Escape') cancelRename();
+                }}
+              />
+            {:else}
+              <button
+                class="name"
+                title="Click to rename"
+                onclick={() => startRename(instance)}
+              >{instance.name}</button>
+            {/if}
             <span class="status {instance.status}">{statusLabel[instance.status]}</span>
           </div>
           <div class="path" title={instance.source_path}>{instance.source_path}</div>
@@ -417,6 +473,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* Reset button chrome so it reads as plain text until hovered. */
+    margin: 0;
+    padding: 2px 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    cursor: text;
+  }
+  .name:hover {
+    border-color: var(--ink-faint);
+  }
+  .name-edit {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0;
+    padding: 2px 4px;
+    border: 1px solid var(--ink);
+    background: var(--bg);
+    color: var(--ink);
+    outline: none;
   }
   /* Monochrome theme: status reads via fill/pattern/animation, not hue. */
   .status {

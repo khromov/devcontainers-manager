@@ -9,6 +9,7 @@ import {
   deleteAllInstances,
   deleteInstance,
   listInstances,
+  renameInstance,
   startInstance,
   stopInstance,
   subscribeInstances,
@@ -126,6 +127,17 @@ export const routes: Record<string, MochiRouteValue> = {
     if (method !== 'POST') return apiError(405, 'Method Not Allowed');
     await deleteAllInstances();
     return json({ ok: true });
+  }),
+
+  '/api/instances/:id/rename': Mochi.api(async ({ method, params, request }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    const body = (await request.json().catch(() => null)) as { name?: string } | null;
+    if (!body?.name) return apiError(400, 'name is required');
+    try {
+      return json({ instance: renameInstance(params.id!, body.name) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
   }),
 
   '/api/instances/:id/start': Mochi.api(async ({ method, params }) => {
