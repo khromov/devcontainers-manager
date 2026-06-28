@@ -11,7 +11,7 @@
   <ul>
     {#each avatars as art (art.name)}
       <li>
-        <Avatar {art} name={art.name} size={72} />
+        <Avatar {art} name={art.name} scale={4} />
         <span class="label">{art.name}</span>
       </li>
     {/each}

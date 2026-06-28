@@ -2,14 +2,22 @@
   import { pickAvatar, decode, type AvatarArt } from '../avatars/index.ts';
 
   // `id` selects the artwork (deterministic, stable per instance); `name` is for
-  // accessibility. `size` is the tile's pixel footprint on screen. `art` lets a
-  // caller (e.g. the dev gallery) render a specific sprite instead of picking.
+  // accessibility. `art` lets a caller (e.g. the dev gallery) render a specific
+  // sprite instead of picking. `scale` is device-pixels per LED cell — the panel
+  // is always rendered at an integer multiple (16 × scale px) so every pixel
+  // lands on a crisp boundary. e.g. scale 3 → 48×48.
   let {
     id = '',
     name,
-    size = 48,
+    scale = 3,
     art,
-  }: { id?: string; name: string; size?: number; art?: AvatarArt } = $props();
+  }: { id?: string; name: string; scale?: number; art?: AvatarArt } = $props();
+
+  // Clamp to a whole number ≥ 1 — fractional scales would blur the grid.
+  const s = $derived(Math.max(1, Math.round(scale)));
+  // A 1px gutter reads as an LED gap at 3×+; below that the cells are too small
+  // to spare a pixel, so the dots butt together (still crisp).
+  const gap = $derived(s >= 3 ? 1 : 0);
 
   // 256 intensities (0 off / 1 dim / 2 on), row-major, for the chosen 16×16 art.
   const cells = $derived(decode(art ?? pickAvatar(id)));
@@ -20,7 +28,7 @@
   role="img"
   aria-label={name}
   title={name}
-  style="width:{size}px;height:{size}px"
+  style="width:{16 * s}px;height:{16 * s}px;--gap:{gap}px"
 >
   {#each cells as cell, i (i)}
     <span class="px" class:on={cell === 2} class:dim={cell === 1}></span>
@@ -28,28 +36,29 @@
 </span>
 
 <style>
-  /* A 16×16 dot-matrix panel: each pixel is its own element, with a hairline gap
-     so the panel reads like a real LED/LCD grid. Monochrome LCD styling — lit
-     dots are ink, unlit dots are a faint tint of the panel. */
+  /* A 16×16 dot-matrix panel: each pixel is its own element. The panel is sized
+     to an exact 16×scale so each cell is `scale` device-pixels — crisp, no
+     sub-pixel blur. Monochrome LCD styling — lit dots are ink, unlit dots a
+     faint tint. The LED gap is a per-cell gutter (see --gap) so it never throws
+     off the integer cell size. */
   .avatar {
     display: grid;
     grid-template-columns: repeat(16, 1fr);
     grid-template-rows: repeat(16, 1fr);
-    gap: 0.5px;
     flex: none;
-    box-sizing: border-box;
-    padding: 2px;
     border: 1px solid var(--ink);
     background: var(--bg);
   }
   .px {
-    background: var(--rule-soft); /* unlit LED — faint */
-    border-radius: 0.5px;
+    box-sizing: border-box;
+    padding: 0 var(--gap) var(--gap) 0;
+    background-clip: content-box;
+    background-color: var(--rule-soft); /* unlit LED — faint */
   }
   .px.dim {
-    background: var(--ink-soft);
+    background-color: var(--ink-soft);
   }
   .px.on {
-    background: var(--ink);
+    background-color: var(--ink);
   }
 </style>
