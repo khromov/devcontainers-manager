@@ -2,9 +2,10 @@
   import { type Instance, type Preflight } from '../types.ts';
   import FolderBrowser from './FolderBrowser.svelte';
   import InstanceCard from './InstanceCard.svelte';
-  import { Package, Link, TriangleAlert, X, Plus, Settings } from '@lucide/svelte';
-  import toast, { Toaster } from 'svelte-french-toast';
-  import type { AuthProvider } from '../types.ts';
+  import SettingsCog from './SettingsCog.svelte';
+  import CredMenu from './CredMenu.svelte';
+  import { Package, Plus } from '@lucide/svelte';
+  import { Toaster } from 'svelte-french-toast';
 
   let { preflight }: { preflight: Preflight } = $props();
 
@@ -13,48 +14,11 @@
   let browserOpen = $state(false);
   let creating = $state(false);
   let actionError = $state<string | null>(null);
-  let credOpen = $state(false);
   let editingId = $state<string | null>(null);
   let editingName = $state('');
 
   // svelte-ignore state_referenced_locally
   const ready = preflight.docker && preflight.cli;
-
-  // Aggregate auth status: green when every provider is authorized, red when none
-  // are, amber only in the mixed state (impossible until a second provider exists).
-  const authedCount = $derived(preflight.auth.filter((a) => a.available).length);
-  const credState = $derived(
-    authedCount === preflight.auth.length ? 'ok' : authedCount === 0 ? 'error' : 'warn',
-  );
-  const credIcon = { ok: Link, warn: TriangleAlert, error: X } as const;
-  const CredIcon = $derived(credIcon[credState]);
-
-  function explainProvider(provider: AuthProvider) {
-    if (provider.available) {
-      toast.success(`${provider.label} credentials come from ${provider.source}.`);
-    } else {
-      const hint = provider.hint ? ` — ${provider.hint}` : '';
-      toast.error(`No ${provider.label} credentials found${hint}.`);
-    }
-  }
-
-  // Close the credentials dropdown on an outside click or Escape.
-  $effect(() => {
-    if (!credOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (!(e.target as Element)?.closest('.cred-menu')) credOpen = false;
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') credOpen = false;
-    };
-    // Defer registration so the click that opened the menu doesn't immediately close it.
-    window.addEventListener('click', onClick);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', onClick);
-      window.removeEventListener('keydown', onKey);
-    };
-  });
 
   // Live instance list over SSE — the first message carries current state,
   // and the server pushes again on every change (boot progress, start/stop/delete).
@@ -168,38 +132,8 @@
 <header class="topbar">
   <div class="brand"><span class="logo"><Package size={22} /></span><span>Devcontainers Manager</span></div>
   <div class="topbar-actions">
-    <a class="cog" href="/settings" aria-label="Settings" title="Settings"><Settings size={16} /></a>
-    <div class="cred-menu">
-      <button
-        class="cred {credState}"
-        onclick={() => (credOpen = !credOpen)}
-        aria-expanded={credOpen}
-        aria-haspopup="menu"
-        aria-label="Credentials"
-        title="Credentials"
-      >
-        <CredIcon size={16} />
-      </button>
-      {#if credOpen}
-        <div class="cred-dropdown" role="menu">
-          {#each preflight.auth as provider (provider.id)}
-            <button
-              type="button"
-              class="cred-row"
-              role="menuitem"
-              onclick={() => explainProvider(provider)}
-              title={provider.available
-                ? `Credentials from ${provider.source}, copied into each new instance.`
-                : `No credentials found on this computer${provider.hint ? ` — ${provider.hint}` : ''}.`}
-            >
-              <span class="dot {provider.available ? 'on' : 'off'}"></span>
-              <span class="cred-label">{provider.label}</span>
-              <span class="cred-state">{provider.available ? 'Authorized' : 'Not found'}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <SettingsCog />
+    <CredMenu auth={preflight.auth} />
     <button class="btn danger" onclick={deleteAll} disabled={instances.length === 0}>
       Delete all
     </button>
@@ -307,100 +241,6 @@
     display: inline-flex;
     align-items: center;
     gap: 14px;
-  }
-  .cog {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--ink);
-    background: var(--bg-card);
-    color: var(--ink);
-  }
-  .cog:hover {
-    background: var(--ink);
-    color: var(--bg);
-  }
-  .cred-menu {
-    position: relative;
-    display: inline-flex;
-  }
-  .cred {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-    line-height: 1;
-    border: 1px solid var(--ink);
-    background: var(--ink);
-    color: var(--bg);
-    cursor: pointer;
-  }
-  .cred:hover {
-    background: var(--bg);
-    color: var(--ink);
-  }
-  /* Auth states differ by fill pattern, not hue: ok = solid, warn = hatch,
-     error = outline-only. */
-  .cred.warn {
-    background:
-      repeating-linear-gradient(45deg, var(--ink) 0 2px, var(--bg) 2px 5px);
-    color: var(--bg);
-  }
-  .cred.error {
-    background: var(--bg);
-    color: var(--ink);
-  }
-  .cred-dropdown {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    z-index: 20;
-    min-width: 220px;
-    padding: 6px;
-    background: var(--bg-card);
-    border: 1px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
-  }
-  .cred-row {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    width: 100%;
-    padding: 7px 9px;
-    border: 0;
-    background: transparent;
-    color: var(--ink);
-    text-align: left;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .cred-row:hover {
-    background: var(--ink);
-    color: var(--bg);
-  }
-  .cred-row:hover .cred-state {
-    color: var(--bg);
-  }
-  .dot {
-    flex: none;
-    width: 9px;
-    height: 9px;
-    border: 1px solid currentColor;
-  }
-  .dot.on {
-    background: currentColor;
-  }
-  .dot.off {
-    background: transparent;
-  }
-  .cred-state {
-    margin-left: auto;
-    color: var(--ink-soft);
   }
   .empty {
     text-align: center;
