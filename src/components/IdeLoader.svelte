@@ -54,7 +54,7 @@
   }
   .label {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 18px;
     text-transform: uppercase;
     letter-spacing: 0.18em;
     color: var(--ink-soft);
