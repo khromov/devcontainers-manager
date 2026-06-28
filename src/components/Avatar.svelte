@@ -4,8 +4,8 @@
   // `id` selects the artwork (deterministic, stable per instance); `name` is for
   // accessibility. `art` lets a caller (e.g. the dev gallery) render a specific
   // sprite instead of picking. `scale` is device-pixels per LED cell — the panel
-  // is always rendered at an integer multiple (8 × scale px) so every pixel
-  // lands on a crisp boundary. e.g. scale 6 → 48×48.
+  // is always rendered at an integer multiple (10 × scale px) so every pixel
+  // lands on a crisp boundary. e.g. scale 6 → 60×60.
   let {
     id = '',
     name,
@@ -21,6 +21,16 @@
 
   // 64 intensities (0 off / 1 dim / 2 on), row-major, for the chosen 8×8 art.
   const cells = $derived(decode(art ?? pickAvatar(id)));
+  // Frame the art in a 10×10 panel: the outer ring is unlit LED cells (a bezel
+  // of real dots, not blank padding), the inner 8×8 holds the art. Row-major.
+  const grid = $derived(
+    Array.from({ length: 100 }, (_, i) => {
+      const r = Math.floor(i / 10);
+      const c = i % 10;
+      const inner = r >= 1 && r <= 8 && c >= 1 && c <= 8;
+      return inner ? cells[(r - 1) * 8 + (c - 1)] : 0;
+    }),
+  );
 </script>
 
 <span
@@ -28,23 +38,24 @@
   role="img"
   aria-label={name}
   title={name}
-  style="width:{8 * s}px;height:{8 * s}px;--gap:{gap}px"
+  style="width:{10 * s}px;height:{10 * s}px;--gap:{gap}px"
 >
-  {#each cells as cell, i (i)}
+  {#each grid as cell, i (i)}
     <span class="px" class:on={cell === 2} class:dim={cell === 1}></span>
   {/each}
 </span>
 
 <style>
-  /* An 8×8 dot-matrix panel: each pixel is its own element. The panel is sized
-     to an exact 8×scale so each cell is `scale` device-pixels — crisp, no
-     sub-pixel blur. Monochrome LCD styling — lit dots are ink, unlit dots a
-     faint tint. The LED gap is a per-cell gutter (see --gap) so it never throws
-     off the integer cell size. */
+  /* A 10×10 dot-matrix panel: each pixel is its own element. The outer ring is
+     unlit LED cells framing the 8×8 art. The panel is sized to an exact
+     10×scale so each cell is `scale` device-pixels — crisp, no sub-pixel blur.
+     Monochrome LCD styling — lit dots are ink, unlit dots a faint tint. The LED
+     gap is a per-cell gutter (see --gap) so it never throws off the integer
+     cell size. */
   .avatar {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
     flex: none;
     border: 1px solid var(--ink);
     background: var(--bg);
