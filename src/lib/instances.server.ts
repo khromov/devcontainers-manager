@@ -198,6 +198,19 @@ async function boot(row: InstanceRow): Promise<void> {
   triggerReconcile();
 }
 
+/**
+ * Make `desired` unique against existing instance names by appending a
+ * `#2`, `#3`, … suffix. The first instance keeps the bare name.
+ */
+function uniqueName(desired: string): string {
+  const taken = new Set(allInstances().map((row) => row.name));
+  if (!taken.has(desired)) return desired;
+  for (let n = 2; ; n++) {
+    const candidate = `${desired} #${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
 /** Create an instance row and kick off its boot in the background. */
 export async function createInstance(sourcePath: string, name?: string): Promise<InstanceRow> {
   await assertDir(sourcePath);
@@ -205,7 +218,7 @@ export async function createInstance(sourcePath: string, name?: string): Promise
   const folderName = basename(sourcePath) || 'workspace';
   const row: InstanceRow = {
     id,
-    name: name?.trim() || folderName,
+    name: uniqueName(name?.trim() || folderName),
     source_path: sourcePath,
     workspace_path: join(INSTANCES_DIR, id, folderName),
     host_port: allocatePort(),
@@ -216,7 +229,8 @@ export async function createInstance(sourcePath: string, name?: string): Promise
     created_at: Date.now(),
   };
   insertInstance(row);
-  recordFolder(sourcePath, row.name);
+  // Strip the de-dup `#2` suffix so the recent-folders list keeps the base name.
+  recordFolder(sourcePath, row.name.replace(/ #\d+$/, ''));
   triggerReconcile();
   void boot(row);
   return row;
