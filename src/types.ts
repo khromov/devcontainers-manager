@@ -12,6 +12,8 @@ export interface Instance {
   created_at: number;
   /** Branch checked out in the container, polled per reconcile; null if unknown. */
   git_branch: string | null;
+  /** Live signal raised by the in-container Claude hook: task done, waiting on input, or none. */
+  attention: 'done' | 'waiting' | null;
 }
 
 /** One authorization the manager can inject into instances (e.g. Claude Code). */

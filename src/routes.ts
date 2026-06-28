@@ -16,6 +16,7 @@ import {
   subscribeLogs,
 } from './lib/instances.server.ts';
 import { deleteFolderHistory, getInstance, listFolderHistory } from './lib/db.server.ts';
+import { clearAttention, setAttention } from './lib/bridge.server.ts';
 import { proxyRoutes } from './lib/proxy.server.ts';
 
 async function preflight() {
@@ -161,6 +162,30 @@ export const routes: Record<string, MochiRouteValue> = {
   '/api/instances/:id/delete': Mochi.api(async ({ method, params }) => {
     if (method !== 'POST') return apiError(405, 'Method Not Allowed');
     await deleteInstance(params.id!);
+    return json({ ok: true });
+  }),
+
+  // Dismiss an instance's attention pulse (called by the UI when its tab is focused).
+  '/api/instances/:id/attention/clear': Mochi.api(async ({ method, params }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    clearAttention(params.id!);
+    return json({ ok: true });
+  }),
+
+  // Bridge: containers call back here (token-authed, exempt from Basic Auth — see
+  // auth.server.ts) to raise/lower their attention pulse. id+token+state in the query.
+  '/api/bridge/attention': Mochi.api(async ({ method, url }) => {
+    if (method !== 'POST' && method !== 'GET') return apiError(405, 'Method Not Allowed');
+    const id = url.searchParams.get('id');
+    const token = url.searchParams.get('token');
+    const state = url.searchParams.get('state');
+    if (!id || !token) return apiError(400, 'id and token are required');
+    const row = getInstance(id);
+    if (!row) return apiError(404, 'Instance not found');
+    if (!row.bridge_token || token !== row.bridge_token) return apiError(403, 'Invalid token');
+    if (state === 'done') setAttention(id, 'done');
+    else if (state === 'waiting') setAttention(id, 'waiting');
+    else clearAttention(id); // 'busy' / anything else → Claude resumed, dismiss the pulse
     return json({ ok: true });
   }),
 

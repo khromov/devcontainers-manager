@@ -24,6 +24,8 @@ export interface InstanceRow {
   status: InstanceStatus;
   error: string | null;
   created_at: number;
+  /** Per-instance secret the in-container Claude hook uses to authenticate to the bridge. */
+  bridge_token: string;
 }
 
 // Pin the connection to globalThis so dev-mode hot reload doesn't reopen it.
@@ -44,7 +46,8 @@ function open(): Database {
       remote_workspace_folder TEXT,
       status TEXT NOT NULL,
       error TEXT,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      bridge_token TEXT NOT NULL DEFAULT ''
     );
   `);
   database.run(`
@@ -59,6 +62,10 @@ function open(): Database {
   if (!cols.some((c) => c.name === 'remote_workspace_folder')) {
     database.run('ALTER TABLE instances ADD COLUMN remote_workspace_folder TEXT;');
   }
+  // Migrate databases created before the attention bridge existed.
+  if (!cols.some((c) => c.name === 'bridge_token')) {
+    database.run("ALTER TABLE instances ADD COLUMN bridge_token TEXT NOT NULL DEFAULT '';");
+  }
   return database;
 }
 
@@ -67,8 +74,8 @@ export const db: Database = (globalForDb.__dcmDb ??= open());
 export function insertInstance(row: InstanceRow): void {
   db.query(
     `INSERT INTO instances
-       (id, name, source_path, workspace_path, host_port, container_id, remote_workspace_folder, status, error, created_at)
-     VALUES ($id, $name, $source_path, $workspace_path, $host_port, $container_id, $remote_workspace_folder, $status, $error, $created_at)`,
+       (id, name, source_path, workspace_path, host_port, container_id, remote_workspace_folder, status, error, created_at, bridge_token)
+     VALUES ($id, $name, $source_path, $workspace_path, $host_port, $container_id, $remote_workspace_folder, $status, $error, $created_at, $bridge_token)`,
   ).run({
     $id: row.id,
     $name: row.name,
@@ -80,6 +87,7 @@ export function insertInstance(row: InstanceRow): void {
     $status: row.status,
     $error: row.error,
     $created_at: row.created_at,
+    $bridge_token: row.bridge_token,
   });
 }
 

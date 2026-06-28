@@ -34,6 +34,9 @@ function credentialsOk(header: string | null): boolean {
  */
 export const basicAuth: Handle = async ({ event, resolve }) => {
   if (!BASIC_AUTH_PASSWORD) return resolve(event);
+  // The container→manager bridge can't carry the app password; it authenticates
+  // with a per-instance token validated by the route itself, so skip Basic Auth here.
+  if (new URL(event.request.url).pathname.startsWith('/api/bridge/')) return resolve(event);
   if (credentialsOk(event.request.headers.get('Authorization'))) return resolve(event);
   return challenge();
 };

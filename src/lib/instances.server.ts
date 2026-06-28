@@ -21,6 +21,12 @@ import {
 } from './docker.server.ts';
 import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
+import {
+  attentionHookSettings,
+  clearAttention,
+  getAttention,
+  injectClaudeHooks,
+} from './bridge.server.ts';
 import { injectGhCredentials, readGhCredentials } from './gh.server.ts';
 import { readGitBranch } from './git.server.ts';
 import type { Instance } from '../types.ts';
@@ -189,6 +195,21 @@ async function boot(row: InstanceRow): Promise<void> {
       appendLog(row.id, '⚠ No GitHub CLI credentials found on host; skipped gh injection\n');
     }
 
+    // Inject the attention hook so the in-container Claude pings the manager when
+    // it finishes a task or needs input, pulsing this instance's IDE tab.
+    appendLog(row.id, 'Injecting Claude attention hooks…\n');
+    const hooks = await injectClaudeHooks(
+      result.containerId,
+      result.remoteUser,
+      attentionHookSettings(row.id, row.bridge_token),
+    );
+    appendLog(
+      row.id,
+      hooks.ok
+        ? '✓ Claude attention hooks installed\n'
+        : `⚠ Claude hook injection failed: ${hooks.error}\n`,
+    );
+
     appendLog(row.id, `\n✓ Instance running — open it via the proxy at /p/${row.id}/\n`);
   } catch (err) {
     const message = (err as Error).message;
@@ -227,6 +248,7 @@ export async function createInstance(sourcePath: string, name?: string): Promise
     status: 'creating',
     error: null,
     created_at: Date.now(),
+    bridge_token: crypto.randomUUID().replace(/-/g, ''),
   };
   insertInstance(row);
   // Strip the de-dup `#2` suffix so the recent-folders list keeps the base name.
@@ -255,7 +277,12 @@ export async function listInstances(): Promise<Instance[]> {
       branches.set(row.id, await readGitBranch(row.workspace_path));
     }),
   );
-  return rows.map((row) => ({ ...row, git_branch: branches.get(row.id) ?? null }));
+  // Strip bridge_token — it's a container-only secret and must not reach the client.
+  return rows.map(({ bridge_token: _token, ...row }) => ({
+    ...row,
+    git_branch: branches.get(row.id) ?? null,
+    attention: getAttention(row.id),
+  }));
 }
 
 export function renameInstance(id: string, name: string): InstanceRow {
@@ -283,6 +310,7 @@ export async function stopInstance(id: string): Promise<InstanceRow> {
   if (!row) throw new Error('Instance not found');
   if (row.container_id) await stopContainer(row.container_id);
   updateInstance(id, { status: 'stopped' });
+  clearAttention(id);
   triggerReconcile();
   return getInstance(id)!;
 }
@@ -294,6 +322,7 @@ export async function deleteInstance(id: string): Promise<void> {
   await rm(join(INSTANCES_DIR, id), { recursive: true, force: true });
   deleteInstanceRow(id);
   registry.delete(id);
+  clearAttention(id);
   triggerReconcile();
 }
 

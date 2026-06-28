@@ -121,8 +121,12 @@ type DevcontainerConfig = {
   features?: Record<string, unknown>;
   appPort?: number | string | (number | string)[];
   postStartCommand?: unknown;
+  runArgs?: string[];
   [key: string]: unknown;
 };
+
+/** Maps `host.docker.internal` to the host so the in-container attention bridge resolves. */
+const HOST_GATEWAY_ARG = '--add-host=host.docker.internal:host-gateway';
 
 /**
  * Inject code-server + a host port publish into the copied workspace's devcontainer.json,
@@ -161,6 +165,12 @@ export async function writeOverrideConfig(workspaceDir: string, hostPort: number
   else if (existingPorts !== undefined) ports.add(existingPorts);
   ports.add(portMapping);
   config.appPort = [...ports];
+
+  // Ensure host.docker.internal resolves inside the container (it isn't automatic on
+  // Colima/Linux Docker) so the Claude attention hook can reach the manager.
+  const runArgs = new Set(Array.isArray(config.runArgs) ? config.runArgs : []);
+  runArgs.add(HOST_GATEWAY_ARG);
+  config.runArgs = [...runArgs];
 
   // Launch code-server on container start, chaining any existing postStartCommand.
   const existing = config.postStartCommand;
