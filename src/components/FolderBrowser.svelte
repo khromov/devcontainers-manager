@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { BrowseResult, FolderHistoryEntry } from '../types.ts';
   import { X, FolderClock, ArrowUp, Folder, TriangleAlert } from '@lucide/svelte';
 
@@ -8,6 +9,7 @@
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let query = $state('');
+  let searchInput = $state<HTMLInputElement | null>(null);
   let history = $state<FolderHistoryEntry[]>([]);
   let showAll = $state(false);
 
@@ -58,6 +60,8 @@
     } finally {
       loading = false;
     }
+    await tick();
+    searchInput?.focus();
   }
 
   $effect(() => {
@@ -129,8 +133,16 @@
         type="text"
         placeholder="Filter folders…"
         bind:value={query}
+        bind:this={searchInput}
         spellcheck="false"
         autocomplete="off"
+        onkeydown={(e) => {
+          const first = filtered[0];
+          if (e.key === 'Enter' && first) {
+            e.preventDefault();
+            load(first.path);
+          }
+        }}
       />
     </div>
 
@@ -148,8 +160,8 @@
         {#if filtered.length === 0}
           <div class="muted">{query ? 'No folders match.' : 'No subfolders here.'}</div>
         {/if}
-        {#each filtered as entry (entry.path)}
-          <div class="row">
+        {#each filtered as entry, i (entry.path)}
+          <div class="row" class:first-match={query.trim() && i === 0}>
             <button class="nav" onclick={() => load(entry.path)}>
               <span class="icon"><Folder size={16} /></span>
               <span class="ename">{entry.name}</span>
@@ -367,6 +379,12 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 2px 4px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+  }
+  .row.first-match {
+    border-color: var(--rule-soft);
   }
   .row .nav,
   .row.up {
