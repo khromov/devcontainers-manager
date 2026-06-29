@@ -1,11 +1,38 @@
 <script lang="ts">
-  import { ideUrl, type Instance } from '../types.ts';
+  import { ideUrl, type Instance, type InstanceHealth } from '../types.ts';
   import { ArrowLeft, ArrowUpRight } from '@lucide/svelte';
 
   let { id }: { id: string } = $props();
 
   let instance = $state<Instance | null>(null);
+  let health = $state<InstanceHealth | null>(null);
   let logs = $state('');
+
+  // One row in the Health box: a label plus a verdict that drives the indicator.
+  type Verdict = 'ok' | 'bad' | 'idle';
+  const checks = $derived.by((): { label: string; verdict: Verdict; value: string }[] => {
+    if (!health) return [];
+    const flag = (state: 'ok' | 'failed' | 'unknown' | 'skipped'): { verdict: Verdict; value: string } =>
+      state === 'ok'
+        ? { verdict: 'ok', value: 'Injected' }
+        : state === 'failed'
+          ? { verdict: 'bad', value: 'Failed' }
+          : { verdict: 'idle', value: state === 'skipped' ? 'Skipped' : 'Unknown' };
+    return [
+      {
+        label: 'Container running',
+        verdict: health.containerRunning ? 'ok' : 'bad',
+        value: health.containerRunning ? 'Up' : 'Down',
+      },
+      {
+        label: 'Code-server reachable',
+        verdict: health.codeServerAccessible ? 'ok' : 'bad',
+        value: health.codeServerAccessible ? 'Accessible' : 'Unreachable',
+      },
+      { label: 'Claude hooks', ...flag(health.hooksInjected) },
+      { label: 'Claude credentials', ...flag(health.credsInjected) },
+    ];
+  });
 
   // Auto-scroll the log box to the bottom whenever new output is appended.
   // Runs after the DOM updates, so scrollHeight is fresh (no tick() needed).
@@ -48,6 +75,26 @@
     return () => source.close();
   });
 
+  // Poll the health snapshot — it runs live docker/HTTP probes, so it's a plain
+  // request loop rather than the shared instance-list SSE stream.
+  $effect(() => {
+    let alive = true;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/instances/${id}/health`);
+        if (alive && res.ok) health = (await res.json()) as InstanceHealth;
+      } catch {
+        /* transient; keep the last snapshot until the next tick */
+      }
+    };
+    void poll();
+    const timer = setInterval(poll, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  });
+
   const url = $derived(instance ? ideUrl(instance) : '#');
 </script>
 
@@ -72,6 +119,29 @@
     {#if instance}<code>{instance.source_path}</code>{:else}<span class="skel skel-wide"></span>{/if}
     <span class="k">Port</span>
     {#if instance}<code>localhost:{instance.host_port}</code>{:else}<span class="skel skel-narrow"></span>{/if}
+  </div>
+
+  <div class="healthwrap">
+    <div class="logbar">Health</div>
+    <div class="health">
+      {#if health}
+        {#each checks as check (check.label)}
+          <div class="hrow">
+            <span class="dot {check.verdict}"></span>
+            <span class="hlabel">{check.label}</span>
+            <span class="hvalue">{check.value}</span>
+          </div>
+        {/each}
+      {:else}
+        {#each Array(4) as _, i (i)}
+          <div class="hrow">
+            <span class="dot idle"></span>
+            <span class="skel skel-narrow"></span>
+            <span class="skel skel-pill"></span>
+          </div>
+        {/each}
+      {/if}
+    </div>
   </div>
 
   <div class="logwrap">
@@ -223,6 +293,62 @@
     100% {
       background-position: -200% 0;
     }
+  }
+  .healthwrap {
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .health {
+    background: var(--bg-card);
+    display: grid;
+    grid-template-columns: max-content 1fr max-content;
+    align-items: center;
+    gap: 0;
+  }
+  .hrow {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .hrow:first-child {
+    border-top: none;
+  }
+  /* Monochrome verdict: fill = ok, diagonal stripe = bad, hollow = idle/unknown. */
+  .dot {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--ink);
+  }
+  .dot.ok {
+    background: var(--ink);
+  }
+  .dot.bad {
+    background: repeating-linear-gradient(45deg, var(--ink) 0 2px, transparent 2px 4px);
+    border-width: 2px;
+  }
+  .dot.idle {
+    background: transparent;
+    border-color: var(--ink-faint);
+  }
+  .hlabel {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .hvalue {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    justify-self: end;
   }
   .logwrap {
     border: 1px solid var(--ink);

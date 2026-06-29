@@ -4,10 +4,16 @@
   // like flowing data on the LCD-style panel — a steady amount of change every
   // tick (rather than a per-bit probability, which makes some frames churn and
   // others barely move) keeps the cadence visually even.
+  // `speed` is a multiplier on the readout's pace: 1 is the default calm cadence,
+  // 2 runs twice as fast, 0.5 half as fast. It scales the tick interval only —
+  // the per-tick churn stays fixed so the cadence reads as even at any speed.
+  let { speed = 1 }: { speed?: number } = $props();
+
   const ROWS = 3;
   const COLS = 22;
-  const TICK_MS = 140; // slower than a flicker; calm, readable pace
+  const BASE_TICK_MS = 140; // pace at speed = 1: slower than a flicker, calm and readable
   const FLIPS_PER_TICK = 7; // constant churn per tick → stable cadence
+  const tickMs = $derived(Math.max(20, BASE_TICK_MS / speed));
   const seed = () =>
     Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => (Math.random() < 0.5 ? 0 : 1)));
 
@@ -24,7 +30,7 @@
         row[c] = row[c] ? 0 : 1;
       }
       grid = next;
-    }, TICK_MS);
+    }, tickMs);
     return () => clearInterval(timer);
   });
 </script>

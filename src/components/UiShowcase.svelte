@@ -11,6 +11,7 @@
   import CredMenu from './CredMenu.svelte';
   import SettingsCog from './SettingsCog.svelte';
   import TopBar from './TopBar.svelte';
+  import IdeLoader from './IdeLoader.svelte';
   import ComponentDemo from './ui-showcase/ComponentDemo.svelte';
 
   // --- Avatar controls ---
@@ -27,6 +28,9 @@
   let btnDisabled = $state(false);
   let btnIcon = $state(true);
   let btnLabel = $state('New Instance');
+
+  // --- IdeLoader controls ---
+  let loaderSpeed = $state(1);
 
   // --- CredMenu controls ---
   // Seed from the server's real preflight so the menu mirrors `/`; the presets
@@ -150,6 +154,18 @@
       {/snippet}
     </ComponentDemo>
 
+    <ComponentDemo title="IdeLoader">
+      <div class="loader-stage">
+        <IdeLoader speed={loaderSpeed} />
+      </div>
+      {#snippet controls()}
+        <label>
+          <span>speed ({loaderSpeed.toFixed(2)}×)</span>
+          <input type="range" min="0.25" max="3" step="0.25" bind:value={loaderSpeed} />
+        </label>
+      {/snippet}
+    </ComponentDemo>
+
     <ComponentDemo title="Brand" note="No props — static branding.">
       <Brand />
     </ComponentDemo>
@@ -232,6 +248,14 @@
   .showcase :global(.fields input[type='range']),
   .showcase :global(.fields input[type='checkbox']) {
     accent-color: var(--ink);
+  }
+  /* IdeLoader is an inset:0 overlay, so give it a sized, positioned stage. */
+  .loader-stage {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    border: 1px solid var(--rule-soft);
+    overflow: hidden;
   }
   .presets {
     display: flex;

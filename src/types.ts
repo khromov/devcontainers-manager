@@ -16,6 +16,18 @@ export interface Instance {
   attention: 'done' | 'waiting' | null;
 }
 
+/** Live + recorded health signals for one instance, surfaced on its status page. */
+export interface InstanceHealth {
+  /** Live: container is up per `docker inspect`. */
+  containerRunning: boolean;
+  /** Live: code-server answered an HTTP probe on its host port. */
+  codeServerAccessible: boolean;
+  /** Recorded at boot: Claude attention-hook injection outcome. */
+  hooksInjected: 'ok' | 'failed' | 'unknown';
+  /** Recorded at boot: Claude credential injection outcome ('skipped' = no host creds). */
+  credsInjected: 'ok' | 'failed' | 'skipped';
+}
+
 /** One authorization the manager can inject into instances (e.g. Claude Code). */
 export interface AuthProvider {
   id: string;

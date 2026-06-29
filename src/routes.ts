@@ -8,6 +8,7 @@ import {
   createInstance,
   deleteAllInstances,
   deleteInstance,
+  instanceHealth,
   listInstances,
   renameInstance,
   startInstance,
@@ -166,6 +167,17 @@ export const routes: Record<string, MochiRouteValue> = {
       return json({ instance: await stopInstance(params.id!) });
     } catch (err) {
       return apiError(400, (err as Error).message);
+    }
+  }),
+
+  // Point-in-time health snapshot for one instance: live container/port probes
+  // plus the recorded hook/credential injection outcomes. Polled by the UI.
+  '/api/instances/:id/health': Mochi.api(async ({ method, params }) => {
+    if (method !== 'GET') return apiError(405, 'Method Not Allowed');
+    try {
+      return json(await instanceHealth(params.id!));
+    } catch (err) {
+      return apiError(404, (err as Error).message);
     }
   }),
 
