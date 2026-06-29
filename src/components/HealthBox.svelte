@@ -144,7 +144,7 @@
     height: 0.95em;
     background: linear-gradient(90deg, var(--rule-soft) 25%, var(--bg-card) 50%, var(--rule-soft) 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.4s steps(6) infinite;
+    animation: shimmer 1.4s linear infinite;
     vertical-align: middle;
   }
   .skel-narrow {

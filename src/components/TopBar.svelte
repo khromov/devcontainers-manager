@@ -9,7 +9,7 @@
 
   // The app's top bar: branding plus the credentials/settings/actions cluster.
   // Action state is injected so the bar stays presentational (and reusable on
-  // the dev /ui showcase).
+  // the dev /debug showcase).
   let {
     auth,
     canDelete = false,
@@ -31,7 +31,7 @@
   <Brand />
   <div class="topbar-actions">
     {#if isDev}
-      <Button variant="default" size="sm" icon={Component} href="/ui">UI</Button>
+      <Button variant="default" size="sm" icon={Component} href="/debug">Debug</Button>
     {/if}
     <SettingsCog />
     <CredMenu {auth} />

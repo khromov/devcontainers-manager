@@ -23,7 +23,7 @@
     {@render children()}
   </div>
   {#if controls}
-    <details class="controls" open>
+    <details class="controls">
       <summary>Props</summary>
       <div class="fields">
         {@render controls()}
