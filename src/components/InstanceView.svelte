@@ -2,6 +2,8 @@
   import { ideUrl, type Instance, type InstanceHealth } from '../types.ts';
   import { ArrowLeft, ArrowUpRight } from '@lucide/svelte';
   import HealthBox from './HealthBox.svelte';
+  import { liveSocket } from '../live.ts';
+  import type { StreamEvent } from '../lib/instances.server.ts';
 
   let { id }: { id: string } = $props();
 
@@ -24,55 +26,33 @@
     error: 'Error',
   };
 
-  // Stream the boot/build log over SSE.
-  $effect(() => {
-    const source = new EventSource(`/api/instances/${id}/logs`);
-    source.onmessage = (event) => {
-      try {
-        logs += JSON.parse(event.data) as string;
-      } catch {
-        logs += event.data;
-      }
-    };
-    return () => source.close();
-  });
+  // Stream the boot/build log over its dedicated WebSocket. Reset on (re)connect
+  // so the server's buffer replay doesn't duplicate output after a reconnect.
+  $effect(() =>
+    liveSocket(
+      `/api/instances/${id}/logs`,
+      (chunk) => (logs += chunk),
+      () => (logs = ''),
+    ),
+  );
 
-  // Track this instance's status from the live instance-list stream.
-  $effect(() => {
-    const source = new EventSource('/api/instances/stream');
-    source.onmessage = (event) => {
+  // Track this instance's status and health from the central live stream.
+  $effect(() =>
+    liveSocket('/api/stream', (raw) => {
       try {
-        const found = (JSON.parse(event.data) as Instance[]).find((i) => i.id === id);
-        if (found) instance = found;
-      } catch {
-        /* ignore malformed frame */
-      }
-    };
-    return () => source.close();
-  });
-
-  // Poll the health snapshot — it runs live docker/HTTP probes, so it's a plain
-  // request loop rather than the shared instance-list SSE stream.
-  $effect(() => {
-    let alive = true;
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/instances/${id}/health`);
-        if (alive && res.ok) {
-          health = (await res.json()) as InstanceHealth;
+        const msg = JSON.parse(raw) as StreamEvent;
+        if (msg.type === 'instances') {
+          const found = msg.data.find((i) => i.id === id);
+          if (found) instance = found;
+        } else if (msg.type === 'health' && msg.data.id === id) {
+          health = msg.data.health;
           lastFetchedAt = Date.now();
         }
       } catch {
-        /* transient; keep the last snapshot until the next tick */
+        /* ignore malformed frame */
       }
-    };
-    void poll();
-    const timer = setInterval(poll, 5000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  });
+    }),
+  );
 
   const url = $derived(instance ? ideUrl(instance) : '#');
 </script>

@@ -5,6 +5,8 @@
   import IdeBar from './IdeBar.svelte';
   import IdeLoader from './IdeLoader.svelte';
   import { playChime, unlockAudio } from '../sound.ts';
+  import { liveSocket } from '../live.ts';
+  import type { StreamEvent } from '../lib/instances.server.ts';
 
   // `initialPath` is the URL the document was served for; `snapshot` is the
   // reconciled instance list at render time, used to seed the live state so both
@@ -112,14 +114,16 @@
     };
   });
 
-  // Single instance-list stream: drives both views and the attention chime,
-  // chiming when a non-focused tab newly raises (or changes) its signal.
+  // Central live stream: drives both views and the attention chime, chiming when
+  // a non-focused tab newly raises (or changes) its signal. Only `instances`
+  // events matter here; `health` events are for the instance detail view.
   $effect(() => {
     let primed = false; // skip the first frame so a reconnect doesn't replay sounds
-    const source = new EventSource('/api/instances/stream');
-    source.onmessage = (event) => {
+    return liveSocket('/api/stream', (raw) => {
       try {
-        const next = JSON.parse(event.data) as Instance[];
+        const msg = JSON.parse(raw) as StreamEvent;
+        if (msg.type !== 'instances') return;
+        const next = msg.data;
         const nextAttention: Record<string, 'done' | 'waiting' | null> = {};
         for (const inst of next) nextAttention[inst.id] = inst.attention;
         if (primed) {
@@ -135,8 +139,7 @@
       } catch {
         /* ignore malformed frame */
       }
-    };
-    return () => source.close();
+    });
   });
 
   // The focused tab shouldn't pulse: dismiss its signal server-side (for all

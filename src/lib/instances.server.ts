@@ -29,8 +29,13 @@ import {
 } from './bridge.server.ts';
 import { injectGhCredentials, readGhCredentials } from './gh.server.ts';
 import { readGitBranch } from './git.server.ts';
-import { stopHealthMonitor, syncHealthMonitors } from './health.server.ts';
-import type { Instance } from '../types.ts';
+import {
+  currentHealthSnapshots,
+  stopHealthMonitor,
+  syncHealthMonitors,
+} from './health.server.ts';
+import type { ServerWebSocket } from 'bun';
+import type { Instance, InstanceHealth } from '../types.ts';
 
 /** Live, in-memory boot state for an instance (logs + SSE subscribers). */
 interface LiveState {
@@ -72,52 +77,82 @@ export function subscribeLogs(id: string, onChunk: (chunk: string) => void): () 
   return () => state.subscribers.delete(onChunk);
 }
 
-// --- Live instance-list stream (SSE) ---------------------------------------
-// One hub broadcasts the reconciled instance list to all subscribers, ticking
-// periodically to pick up external Docker state changes and immediately on any
-// mutation. Subscribers receive the full list as their first message.
+// --- Central live stream (WebSocket) ---------------------------------------
+// One hub broadcasts typed events to every connected `/api/stream` socket: the
+// full reconciled instance list (`instances`) and continuous per-instance
+// `health`. It reconciles on a periodic tick to pick up external Docker state
+// changes and immediately on any mutation. A fresh socket is seeded with the
+// current list plus the latest health snapshots.
 
-interface InstancesHub {
-  listeners: Set<(list: Instance[]) => void>;
+/** A message pushed to clients on the central stream; clients filter by `type`. */
+export type StreamEvent =
+  | { type: 'instances'; data: Instance[] }
+  | { type: 'health'; data: { id: string; health: InstanceHealth } };
+
+interface StreamHub {
+  sockets: Set<ServerWebSocket<unknown>>;
   timer: ReturnType<typeof setInterval> | null;
-  lastJson: string;
+  lastListJson: string;
 }
 
-const globalForHub = globalThis as unknown as { __dcmHub?: InstancesHub };
-const hub: InstancesHub = (globalForHub.__dcmHub ??= { listeners: new Set(), timer: null, lastJson: '' });
+const globalForHub = globalThis as unknown as { __dcmHub?: StreamHub };
+const hub: StreamHub = (globalForHub.__dcmHub ??= { sockets: new Set(), timer: null, lastListJson: '' });
 
-async function reconcileAndBroadcast(force = false): Promise<void> {
-  const list = await listInstances();
-  const json = JSON.stringify(list);
-  if (!force && json === hub.lastJson) return;
-  hub.lastJson = json;
-  // Guard each send and drop subscribers whose stream has already closed.
-  for (const cb of [...hub.listeners]) {
+/** Serialize an event once and fan it out, dropping sockets that have closed. */
+function broadcast(event: StreamEvent): void {
+  const frame = JSON.stringify(event);
+  for (const ws of [...hub.sockets]) {
     try {
-      cb(list);
+      ws.send(frame);
     } catch {
-      hub.listeners.delete(cb);
+      hub.sockets.delete(ws);
     }
   }
 }
 
-/** Notify all subscribers that the instance list changed (immediate push). */
+function sendTo(ws: ServerWebSocket<unknown>, event: StreamEvent): void {
+  try {
+    ws.send(JSON.stringify(event));
+  } catch {
+    hub.sockets.delete(ws);
+  }
+}
+
+/** Push a fresh health snapshot for one instance to all stream clients. */
+export function broadcastHealth(id: string, health: InstanceHealth): void {
+  broadcast({ type: 'health', data: { id, health } });
+}
+
+async function reconcileAndBroadcast(force = false): Promise<void> {
+  const list = await listInstances();
+  const json = JSON.stringify(list);
+  if (!force && json === hub.lastListJson) return;
+  hub.lastListJson = json;
+  broadcast({ type: 'instances', data: list });
+}
+
+/** Notify all clients that the instance list changed (immediate push). */
 export function triggerReconcile(): void {
   void reconcileAndBroadcast(true);
 }
 
-/** Subscribe to the live instance list; the callback fires immediately with current state. */
-export function subscribeInstances(cb: (list: Instance[]) => void): () => void {
-  hub.listeners.add(cb);
+/** A new `/api/stream` socket connected: register it, seed it, and ensure the tick runs. */
+export function streamOpen(ws: ServerWebSocket<unknown>): void {
+  hub.sockets.add(ws);
   if (!hub.timer) hub.timer = setInterval(() => void reconcileAndBroadcast(), 3000);
-  void listInstances().then(cb);
-  return () => {
-    hub.listeners.delete(cb);
-    if (hub.listeners.size === 0 && hub.timer) {
-      clearInterval(hub.timer);
-      hub.timer = null;
-    }
-  };
+  // Seed the freshly-connected client: full list now, plus whatever health we
+  // already have. Newly-running instances fill in on the next monitor tick.
+  void listInstances().then((list) => sendTo(ws, { type: 'instances', data: list }));
+  for (const snap of currentHealthSnapshots()) sendTo(ws, { type: 'health', data: snap });
+}
+
+/** A `/api/stream` socket closed: unregister it and stop the tick when idle. */
+export function streamClose(ws: ServerWebSocket<unknown>): void {
+  hub.sockets.delete(ws);
+  if (hub.sockets.size === 0 && hub.timer) {
+    clearInterval(hub.timer);
+    hub.timer = null;
+  }
 }
 
 function allocatePort(): number {

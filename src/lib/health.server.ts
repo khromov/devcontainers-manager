@@ -1,5 +1,6 @@
-import { getInstance, type InstanceRow } from './db.server.ts';
+import { type InstanceRow } from './db.server.ts';
 import { isRunning } from './docker.server.ts';
+import { broadcastHealth } from './instances.server.ts';
 import type { InstanceHealth } from '../types.ts';
 
 /**
@@ -88,11 +89,12 @@ async function check(row: InstanceRow): Promise<InstanceHealth> {
   };
 }
 
-/** One monitor cycle: refresh the snapshot, and retire the job once the container is down. */
+/** One monitor cycle: refresh the snapshot, push it live, and retire the job once down. */
 async function tick(row: InstanceRow): Promise<void> {
   const snapshot = await check(row);
   const mon = monitors.get(row.id);
   if (mon) mon.snapshot = snapshot;
+  broadcastHealth(row.id, snapshot);
   if (!snapshot.containerRunning) stopHealthMonitor(row.id);
 }
 
@@ -131,15 +133,11 @@ export function syncHealthMonitors(rows: InstanceRow[]): void {
   }
 }
 
-/** Latest live health snapshot for one instance, computing one on demand if needed. */
-export async function getHealth(id: string): Promise<InstanceHealth> {
-  const row = getInstance(id);
-  if (!row) throw new Error('Instance not found');
-  const mon = monitors.get(id);
-  if (mon?.snapshot) return mon.snapshot;
-  // No monitor yet (e.g. first page load before reconcile started one): probe now,
-  // and spin up the background job so subsequent reads are instant.
-  const snapshot = await check(row);
-  if (snapshot.containerRunning) startHealthMonitor(row).snapshot = snapshot;
-  return snapshot;
+/** Every monitor's latest snapshot, for seeding a freshly-connected stream client. */
+export function currentHealthSnapshots(): { id: string; health: InstanceHealth }[] {
+  const out: { id: string; health: InstanceHealth }[] = [];
+  for (const [id, mon] of monitors) {
+    if (mon.snapshot) out.push({ id, health: mon.snapshot });
+  }
+  return out;
 }

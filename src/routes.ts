@@ -12,11 +12,11 @@ import {
   renameInstance,
   startInstance,
   stopInstance,
-  subscribeInstances,
+  streamClose,
+  streamOpen,
   subscribeLogs,
 } from './lib/instances.server.ts';
 import { deleteFolderHistory, getInstance, listFolderHistory } from './lib/db.server.ts';
-import { getHealth } from './lib/health.server.ts';
 import { clearAttention, setAttention } from './lib/bridge.server.ts';
 import { proxyRoutes } from './lib/proxy.server.ts';
 
@@ -93,17 +93,13 @@ export const routes: Record<string, MochiRouteValue> = {
     }
   }),
 
-  // Live instance list over SSE — first message is the full current state.
-  '/api/instances/stream': Mochi.sse((stream) => {
-    const send = (list: unknown) => {
-      try {
-        stream.send(JSON.stringify(list));
-      } catch {
-        /* stream closed between broadcast and send */
-      }
-    };
-    const unsubscribe = subscribeInstances(send);
-    stream.onClose(unsubscribe);
+  // Central live stream (WebSocket): typed events for the whole UI — the full
+  // reconciled instance list and continuous per-instance health. A fresh socket
+  // is seeded with the current state. Clients filter by event `type`.
+  '/api/stream': Mochi.ws({
+    open: streamOpen,
+    message: () => {},
+    close: streamClose,
   }),
 
   '/api/instances': Mochi.api(async ({ method, request }) => {
@@ -170,17 +166,6 @@ export const routes: Record<string, MochiRouteValue> = {
     }
   }),
 
-  // Live health snapshot for one instance, kept fresh by a background monitor
-  // (see health.server.ts). The UI polls this; results are never persisted.
-  '/api/instances/:id/health': Mochi.api(async ({ method, params }) => {
-    if (method !== 'GET') return apiError(405, 'Method Not Allowed');
-    try {
-      return json(await getHealth(params.id!));
-    } catch (err) {
-      return apiError(404, (err as Error).message);
-    }
-  }),
-
   '/api/instances/:id/delete': Mochi.api(async ({ method, params }) => {
     if (method !== 'POST') return apiError(405, 'Method Not Allowed');
     await deleteInstance(params.id!);
@@ -211,22 +196,23 @@ export const routes: Record<string, MochiRouteValue> = {
     return json({ ok: true });
   }),
 
-  // Live boot/build log stream for one instance.
-  '/api/instances/:id/logs': Mochi.sse((stream, req) => {
-    const id = new URL(req.url).pathname.split('/')[3];
-    if (!id) {
-      stream.close();
-      return;
-    }
-    // JSON-encode each chunk so embedded newlines don't break SSE framing.
-    const unsubscribe = subscribeLogs(id, (chunk) => {
-      try {
-        stream.send(JSON.stringify(chunk));
-      } catch {
-        /* stream closed */
-      }
-    });
-    stream.onClose(unsubscribe);
+  // Live boot/build log stream for one instance (WebSocket). Replays the buffer
+  // then streams new chunks as raw text — WS frames tolerate embedded newlines.
+  '/api/instances/:id/logs': Mochi.ws<{ id: string; unsub?: () => void }>({
+    upgrade: (_req, params) => (params.id ? { id: params.id } : false),
+    open(ws) {
+      ws.data.user.unsub = subscribeLogs(ws.data.user.id, (chunk) => {
+        try {
+          ws.send(chunk);
+        } catch {
+          /* socket closed */
+        }
+      });
+    },
+    message: () => {},
+    close(ws) {
+      ws.data.user.unsub?.();
+    },
   }),
 
   // Reverse proxy for each instance's code-server: /p/:id redirect, /p/:id/*
