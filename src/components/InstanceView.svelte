@@ -106,7 +106,7 @@
     if (ok) pendingRebuild = true;
   }
 
-  async function rebuild() {
+  async function restart() {
     const ok = await portAction(() => fetch(`/api/instances/${id}/rebuild`, { method: 'POST' }));
     if (ok) pendingRebuild = false;
   }
@@ -141,7 +141,9 @@
     <div class="ports-bar">
       <span>Forwarded ports</span>
       {#if pendingRebuild}
-        <button class="rebuild" onclick={rebuild} disabled={building}>Rebuild to apply</button>
+        <button class="rebuild" onclick={restart} disabled={building}>
+          {building ? 'Restarting…' : 'Restart to apply'}
+        </button>
       {/if}
     </div>
     <div class="ports-body">
@@ -176,7 +178,7 @@
 
       {#if portError}<p class="port-err">{portError}</p>{/if}
       {#if pendingRebuild}
-        <p class="hint pending">Port changes apply on the next rebuild (recreates the container).</p>
+        <p class="hint pending">Port changes apply when you <strong>Restart</strong> (recreates the container).</p>
       {/if}
       <p class="hint">Your app must bind to <code>0.0.0.0</code> inside the container to be reachable.</p>
     </div>
