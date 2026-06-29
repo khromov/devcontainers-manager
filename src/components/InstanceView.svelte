@@ -131,8 +131,6 @@
   <div class="meta">
     <span class="k">Source</span>
     {#if instance}<code>{instance.source_path}</code>{:else}<span class="skel skel-wide"></span>{/if}
-    <span class="k">Port</span>
-    {#if instance}<code>localhost:{instance.host_port}</code>{:else}<span class="skel skel-narrow"></span>{/if}
   </div>
 
   <div class="healthslot">
@@ -317,9 +315,6 @@
   }
   .skel-wide {
     width: min(420px, 60vw);
-  }
-  .skel-narrow {
-    width: 120px;
   }
   .skel-pill {
     width: 64px;

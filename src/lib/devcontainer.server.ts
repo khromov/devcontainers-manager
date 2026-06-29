@@ -19,6 +19,18 @@ const CODE_SERVER_SETTINGS = {
   'workbench.colorTheme': 'Default Dark Modern',
   'workbench.secondarySideBar.defaultVisibility': 'hidden',
   'chat.commandCenter.enabled': false,
+  // Run the folderOpen Terminal task (below) without prompting on first open.
+  'task.allowAutomaticTasks': 'on',
+};
+
+/** Auto-opens an interactive terminal when the workspace folder opens in code-server. */
+const TERMINAL_TASK = {
+  label: 'Terminal',
+  type: 'shell',
+  command: 'exec ${env:SHELL} -l',
+  presentation: { reveal: 'always', panel: 'shared', focus: true },
+  runOptions: { runOn: 'folderOpen' },
+  problemMatcher: [],
 };
 
 /** Copy the staged settings into code-server's user-data dir before first launch. */
@@ -241,6 +253,43 @@ export async function writeOverrideConfig(
     JSON.stringify(CODE_SERVER_SETTINGS, null, 2) + '\n',
     'utf8',
   );
+
+  await writeTerminalTask(workspaceDir);
+}
+
+/**
+ * Merge the folderOpen Terminal task into the workspace's `.vscode/tasks.json` so a usable
+ * shell opens automatically in code-server. Non-destructive: preserves any existing tasks
+ * and is idempotent across rebuilds. A malformed existing tasks.json is replaced rather
+ * than aborting the boot.
+ */
+async function writeTerminalTask(workspaceDir: string): Promise<void> {
+  const tasksPath = join(workspaceDir, '.vscode', 'tasks.json');
+  let config: { version?: string; tasks?: unknown[] } = {};
+
+  if (existsSync(tasksPath)) {
+    try {
+      config = JSON.parse(stripJsonc(await readFile(tasksPath, 'utf8')));
+    } catch {
+      config = {};
+    }
+  }
+
+  config.version = config.version ?? '2.0.0';
+  const tasks = Array.isArray(config.tasks) ? config.tasks : [];
+
+  const hasTerminalTask = tasks.some(
+    (t) =>
+      typeof t === 'object' &&
+      t !== null &&
+      (t as Record<string, unknown>).label === TERMINAL_TASK.label &&
+      ((t as Record<string, { runOn?: string }>).runOptions?.runOn ?? '') === 'folderOpen',
+  );
+  if (!hasTerminalTask) tasks.push(TERMINAL_TASK);
+  config.tasks = tasks;
+
+  await mkdir(join(workspaceDir, '.vscode'), { recursive: true }).catch(() => {});
+  await writeFile(tasksPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 
 export interface UpResult {

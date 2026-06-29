@@ -49,7 +49,6 @@
     <span class="status {instance.status}">{statusLabel[instance.status]}</span>
   </div>
   <div class="path" title={instance.source_path}>{instance.source_path}</div>
-  <div class="port">localhost:{instance.host_port}</div>
   {#if instance.status === 'running' && instance.forwarded_ports.length}
     <div class="fports" title="Forwarded ports — click to open">
       <Cable size={12} />
@@ -188,12 +187,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .port {
-    margin-top: 4px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-faint);
   }
   /* Mini badge mirroring .branch: icon + a comma-separated list of forwarded ports. */
   .fports {

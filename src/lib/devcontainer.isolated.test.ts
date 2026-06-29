@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readDeclaredContainerPorts } from './devcontainer.server.ts';
+import { readDeclaredContainerPorts, writeOverrideConfig } from './devcontainer.server.ts';
 
 describe('readDeclaredContainerPorts', () => {
   let dir: string;
@@ -43,5 +43,59 @@ describe('readDeclaredContainerPorts', () => {
     expect(await readDeclaredContainerPorts(dir)).toEqual([3000]);
     writeConfig('not json at all');
     expect(await readDeclaredContainerPorts(dir)).toEqual([]);
+  });
+});
+
+describe('writeOverrideConfig terminal task + settings', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'dcm-task-'));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  const readTasks = () => JSON.parse(readFileSync(join(dir, '.vscode', 'tasks.json'), 'utf8'));
+  const readSettings = () =>
+    JSON.parse(readFileSync(join(dir, '.devcontainer', 'code-server-settings.json'), 'utf8'));
+
+  test('creates .vscode/tasks.json with the folderOpen Terminal task', async () => {
+    await writeOverrideConfig(dir, 8001);
+    const tasks = readTasks();
+    expect(tasks.version).toBe('2.0.0');
+    const terminal = tasks.tasks.find((t: { label: string }) => t.label === 'Terminal');
+    expect(terminal).toBeDefined();
+    expect(terminal.runOptions.runOn).toBe('folderOpen');
+  });
+
+  test('stages task.allowAutomaticTasks in code-server settings', async () => {
+    await writeOverrideConfig(dir, 8001);
+    expect(readSettings()['task.allowAutomaticTasks']).toBe('on');
+  });
+
+  test('preserves an existing unrelated task and appends Terminal', async () => {
+    mkdirSync(join(dir, '.vscode'), { recursive: true });
+    writeFileSync(
+      join(dir, '.vscode', 'tasks.json'),
+      JSON.stringify({ version: '2.0.0', tasks: [{ label: 'Build', type: 'shell', command: 'make' }] }),
+    );
+    await writeOverrideConfig(dir, 8001);
+    const labels = readTasks().tasks.map((t: { label: string }) => t.label);
+    expect(labels).toContain('Build');
+    expect(labels).toContain('Terminal');
+  });
+
+  test('does not duplicate the Terminal task across reruns', async () => {
+    await writeOverrideConfig(dir, 8001);
+    await writeOverrideConfig(dir, 8001);
+    const terminals = readTasks().tasks.filter((t: { label: string }) => t.label === 'Terminal');
+    expect(terminals).toHaveLength(1);
+  });
+
+  test('replaces a malformed tasks.json rather than throwing', async () => {
+    mkdirSync(join(dir, '.vscode'), { recursive: true });
+    writeFileSync(join(dir, '.vscode', 'tasks.json'), 'not json at all');
+    await writeOverrideConfig(dir, 8001);
+    const labels = readTasks().tasks.map((t: { label: string }) => t.label);
+    expect(labels).toEqual(['Terminal']);
   });
 });
