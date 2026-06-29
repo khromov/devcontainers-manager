@@ -5,7 +5,7 @@ import type { Server } from 'bun';
 import { Mochi } from 'mochi-framework';
 
 const routes = {
-  '/': Mochi.page('./src/HelloWorld.svelte'),
+  '/': Mochi.page('./src/__fixtures__/HelloWorld.svelte'),
 };
 
 describe('minimal app', () => {
