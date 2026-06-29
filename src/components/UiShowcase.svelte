@@ -2,7 +2,7 @@
   import { Plus } from '@lucide/svelte';
   import toast, { Toaster } from 'svelte-french-toast';
   import { avatars } from '../avatars/index.ts';
-  import type { AuthProvider, InstanceHealth, Preflight } from '../types.ts';
+  import type { AuthProvider, InstanceHealth, PortForward, Preflight } from '../types.ts';
 
   let { preflight }: { preflight: Preflight } = $props();
   import Avatar from './Avatar.svelte';
@@ -13,6 +13,8 @@
   import TopBar from './TopBar.svelte';
   import IdeLoader from './IdeLoader.svelte';
   import HealthBox from './HealthBox.svelte';
+  import BranchBox from './BranchBox.svelte';
+  import PortsBox from './PortsBox.svelte';
   import ComponentDemo from './ui-showcase/ComponentDemo.svelte';
 
   // --- Avatar controls ---
@@ -58,6 +60,22 @@
   const demoHealth = $derived<InstanceHealth | null>(
     healthLoading ? null : { ...healthChecks, openPorts: [], checkedAt: healthFetchedAt },
   );
+
+  // --- PortsBox controls ---
+  // `openCount` of the `portCount` ports render as published (filled dot); the rest
+  // show hollow. Count 0 exercises the empty state (renders nothing).
+  let portCount = $state(3);
+  let openCount = $state(2);
+  const demoPorts = $derived<PortForward[]>(
+    Array.from({ length: portCount }, (_, i) => ({
+      container_port: 3000 + i,
+      host_port: 8001 + i,
+      open: i < openCount,
+    })),
+  );
+
+  // --- BranchBox controls ---
+  let branchName = $state('main');
 </script>
 
 <Toaster />
@@ -206,6 +224,30 @@
         <label class="inline">
           <input type="checkbox" bind:checked={healthChecks.credsPresent} />
           <span>credentials present</span>
+        </label>
+      {/snippet}
+    </ComponentDemo>
+
+    <ComponentDemo title="PortsBox">
+      <PortsBox ports={demoPorts} />
+      {#snippet controls()}
+        <label>
+          <span>ports ({portCount})</span>
+          <input type="range" min="0" max="6" bind:value={portCount} />
+        </label>
+        <label>
+          <span>open ({openCount})</span>
+          <input type="range" min="0" max={portCount} bind:value={openCount} />
+        </label>
+      {/snippet}
+    </ComponentDemo>
+
+    <ComponentDemo title="BranchBox">
+      <BranchBox branch={branchName} />
+      {#snippet controls()}
+        <label>
+          <span>branch</span>
+          <input type="text" bind:value={branchName} />
         </label>
       {/snippet}
     </ComponentDemo>

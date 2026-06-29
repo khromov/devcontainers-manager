@@ -1,7 +1,8 @@
 <script lang="ts">
   import { type Instance } from '../types.ts';
   import Avatar from './Avatar.svelte';
-  import { Cable, GitBranch } from '@lucide/svelte';
+  import BranchBox from './BranchBox.svelte';
+  import PortsBox from './PortsBox.svelte';
 
   let {
     instance,
@@ -49,27 +50,11 @@
     <span class="status {instance.status}">{statusLabel[instance.status]}</span>
   </div>
   <div class="path" title={instance.source_path}>{instance.source_path}</div>
-  {#if instance.status === 'running' && instance.forwarded_ports.length}
-    <div class="fports" title="Forwarded ports — click to open">
-      <Cable size={12} />
-      <span class="list">
-        {#each instance.forwarded_ports as f (f.container_port)}
-          <a
-            class="fport"
-            class:open={f.open}
-            href={`http://localhost:${f.host_port}`}
-            target="_blank"
-            rel="noopener"
-            title={`container :${f.container_port} → http://localhost:${f.host_port} ${f.open ? '(open)' : '(not published yet)'}`}
-          >{f.container_port}</a>
-        {/each}
-      </span>
-    </div>
+  {#if instance.status === 'running'}
+    <PortsBox ports={instance.forwarded_ports} />
   {/if}
   {#if instance.git_branch}
-    <div class="branch" title="Branch checked out in the container">
-      <GitBranch size={12} /><span>{instance.git_branch}</span>
-    </div>
+    <BranchBox branch={instance.git_branch} />
   {/if}
   {#if instance.status === 'error' && instance.error}
     <div class="card-error">{instance.error}</div>
@@ -185,73 +170,6 @@
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--ink-soft);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  /* Mini badge mirroring .branch: icon + a comma-separated list of forwarded ports. */
-  .fports {
-    margin-top: 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    max-width: 100%;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink);
-    border: 1px solid var(--ink-faint);
-    padding: 2px 7px;
-  }
-  .fports :global(svg) {
-    flex: none;
-  }
-  /* Flex list drops the source whitespace between links, so commas sit flush. */
-  .list {
-    display: flex;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-  /* Status reads via the leading dot + fill: hollow + dimmed = not yet published,
-     filled + full ink = the live container actually exposes this port. */
-  .fport {
-    color: var(--ink-soft);
-    text-decoration: none;
-  }
-  .fport::before {
-    content: '○\00a0';
-    color: var(--ink-faint);
-  }
-  .fport.open {
-    color: var(--ink);
-  }
-  .fport.open::before {
-    content: '●\00a0';
-    color: var(--ink);
-  }
-  .fport:hover {
-    text-decoration: underline;
-  }
-  .fport:not(:last-child)::after {
-    content: ',';
-    color: var(--ink-faint);
-    margin-right: 4px;
-  }
-  .branch {
-    margin-top: 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    max-width: 100%;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink);
-    border: 1px solid var(--ink-faint);
-    padding: 2px 7px;
-  }
-  .branch :global(svg) {
-    flex: none;
-  }
-  .branch span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
