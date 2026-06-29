@@ -9,6 +9,7 @@
         "@fontsource-variable/doto": "^5.2.10",
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
         "@lucide/svelte": "^1.21.0",
+        "@zihaolam/bun-sqlite-migrations": "^1.0.3",
         "mochi-framework": "file:./vendor/mochi-framework",
         "svelte": "^5.56.3",
         "svelte-french-toast": "^1.2.0",
@@ -92,6 +93,8 @@
     "@types/whatwg-mimetype": ["@types/whatwg-mimetype@3.0.2", "", {}, "sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA=="],
 
     "@types/ws": ["@types/ws@8.18.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg=="],
+
+    "@zihaolam/bun-sqlite-migrations": ["@zihaolam/bun-sqlite-migrations@1.0.3", "", { "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-I7IhllXmkNouiTw8v4yMbH9HRI0mzlo2jLqGHNJwkr7+MKXNEI/1qD+0fgtlXt2p2mIfY0LuJDEar1x2I3I/kw=="],
 
     "acorn": ["acorn@8.17.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg=="],
 

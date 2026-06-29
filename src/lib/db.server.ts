@@ -1,6 +1,11 @@
 import { Database } from 'bun:sqlite';
+import { migrate, getMigrations } from '@zihaolam/bun-sqlite-migrations';
 import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { DATA_DIR, DB_PATH } from './config.server.ts';
+
+// db.server.ts lives in src/lib, so ../../migrations resolves to the repo root.
+const MIGRATIONS_DIR = join(import.meta.dir, '../../migrations');
 
 /** Possible lifecycle states for an instance row. */
 export type InstanceStatus = 'creating' | 'running' | 'stopped' | 'error';
@@ -37,42 +42,7 @@ function open(): Database {
   mkdirSync(DATA_DIR, { recursive: true });
   const database = new Database(DB_PATH, { create: true });
   database.run('PRAGMA journal_mode = WAL;');
-  database.run(`
-    CREATE TABLE IF NOT EXISTS instances (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      source_path TEXT NOT NULL,
-      workspace_path TEXT NOT NULL,
-      host_port INTEGER NOT NULL,
-      container_id TEXT,
-      remote_workspace_folder TEXT,
-      status TEXT NOT NULL,
-      error TEXT,
-      created_at INTEGER NOT NULL,
-      bridge_token TEXT NOT NULL DEFAULT '',
-      remote_user TEXT
-    );
-  `);
-  database.run(`
-    CREATE TABLE IF NOT EXISTS folder_history (
-      source_path TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      last_used_at INTEGER NOT NULL
-    );
-  `);
-  // Migrate databases created before remote_workspace_folder existed.
-  const cols = database.query('PRAGMA table_info(instances)').all() as { name: string }[];
-  if (!cols.some((c) => c.name === 'remote_workspace_folder')) {
-    database.run('ALTER TABLE instances ADD COLUMN remote_workspace_folder TEXT;');
-  }
-  // Migrate databases created before the attention bridge existed.
-  if (!cols.some((c) => c.name === 'bridge_token')) {
-    database.run("ALTER TABLE instances ADD COLUMN bridge_token TEXT NOT NULL DEFAULT '';");
-  }
-  // Migrate databases created before the container user was recorded.
-  if (!cols.some((c) => c.name === 'remote_user')) {
-    database.run('ALTER TABLE instances ADD COLUMN remote_user TEXT;');
-  }
+  migrate(database, getMigrations(MIGRATIONS_DIR));
   return database;
 }
 
