@@ -1,11 +1,16 @@
 import { rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { INSTANCES_DIR, PORT_BASE, PORT_MAX } from './config.server.ts';
+import { CODE_SERVER_PORT, INSTANCES_DIR, PORT_BASE, PORT_MAX } from './config.server.ts';
 import {
+  allForwards,
   allInstances,
+  deleteForward,
+  deleteForwards,
   deleteInstanceRow,
   getInstance,
+  insertForward,
   insertInstance,
+  listForwards,
   recordFolder,
   updateInstance,
   usedPorts,
@@ -19,7 +24,12 @@ import {
   startContainer,
   stopContainer,
 } from './docker.server.ts';
-import { copyWorkspace, devcontainerUp, writeOverrideConfig } from './devcontainer.server.ts';
+import {
+  copyWorkspace,
+  devcontainerUp,
+  readDeclaredContainerPorts,
+  writeOverrideConfig,
+} from './devcontainer.server.ts';
 import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
 import {
   attentionHookSettings,
@@ -174,14 +184,57 @@ async function assertDir(path: string): Promise<void> {
   if (!info.isDirectory()) throw new Error(`Not a folder: ${path}`);
 }
 
-/** Drive the long-running boot: copy → inject config → devcontainer up. */
+/** Drive the first boot: copy workspace → seed declared ports → provision the container. */
 async function boot(row: InstanceRow): Promise<void> {
   try {
     appendLog(row.id, `Copying ${row.source_path} → ${row.workspace_path}\n`);
     await copyWorkspace(row.source_path, row.workspace_path);
+    await seedDeclaredPorts(row);
+  } catch (err) {
+    const message = (err as Error).message;
+    updateInstance(row.id, { status: 'error', error: message });
+    appendLog(row.id, `\n✗ Error: ${message}\n`);
+    triggerReconcile();
+    return;
+  }
+  await provision(row);
+}
 
+/**
+ * Allocate a unique host port for every container port the project declares
+ * (`forwardPorts`/`appPort`) and persist it as a forward. Runs on first boot after the copy,
+ * before config injection, so it reads the pristine config. Idempotent — skips ports already
+ * forwarded, so it's a no-op on rebuild.
+ */
+async function seedDeclaredPorts(row: InstanceRow): Promise<void> {
+  const existing = new Set(listForwards(row.id).map((f) => f.container_port));
+  for (const containerPort of await readDeclaredContainerPorts(row.workspace_path)) {
+    if (existing.has(containerPort)) continue;
+    const hostPort = allocatePort();
+    insertForward({
+      instance_id: row.id,
+      container_port: containerPort,
+      host_port: hostPort,
+      created_at: Date.now(),
+    });
+    existing.add(containerPort);
+    appendLog(row.id, `Forwarding declared port ${containerPort} → localhost:${hostPort}\n`);
+  }
+}
+
+/**
+ * (Re-)inject config and run `devcontainer up`, then provision auth/hooks. Shared by the first
+ * boot and by `rebuildInstance` — it never re-copies the workspace, so in-container edits survive
+ * a rebuild. `--remove-existing-container` recreates the container with the current published ports.
+ */
+async function provision(row: InstanceRow): Promise<void> {
+  try {
+    const forwards = listForwards(row.id).map((f) => ({
+      container_port: f.container_port,
+      host_port: f.host_port,
+    }));
     appendLog(row.id, `Injecting code-server (host port ${row.host_port})\n`);
-    await writeOverrideConfig(row.workspace_path, row.host_port);
+    await writeOverrideConfig(row.workspace_path, row.host_port, forwards);
 
     appendLog(row.id, `Starting devcontainer…\n`);
     const result = await devcontainerUp(row.workspace_path, (chunk) => appendLog(row.id, chunk));
@@ -318,11 +371,19 @@ export async function listInstances(): Promise<Instance[]> {
   // Keep a background health monitor running for each live container (and retire
   // monitors for the rest) — reconcile is where we know the current running set.
   syncHealthMonitors(rows);
+  // Group forwarded ports per instance in a single query (mirrors the branches map).
+  const forwards = new Map<string, { container_port: number; host_port: number }[]>();
+  for (const f of allForwards()) {
+    const list = forwards.get(f.instance_id) ?? [];
+    list.push({ container_port: f.container_port, host_port: f.host_port });
+    forwards.set(f.instance_id, list);
+  }
   // Strip bridge_token — it's a container-only secret and must not reach the client.
   return rows.map(({ bridge_token: _token, ...row }) => ({
     ...row,
     git_branch: branches.get(row.id) ?? null,
     attention: getAttention(row.id),
+    forwarded_ports: forwards.get(row.id) ?? [],
   }));
 }
 
@@ -334,6 +395,54 @@ export function renameInstance(id: string, name: string): InstanceRow {
   updateInstance(id, { name: trimmed });
   triggerReconcile();
   return getInstance(id)!;
+}
+
+/** Allocate a host port for a new container port and persist it. Apply via `rebuildInstance`. */
+export function addForwardedPort(id: string, containerPort: number): InstanceRow {
+  const row = getInstance(id);
+  if (!row) throw new Error('Instance not found');
+  if (!Number.isInteger(containerPort) || containerPort < 1 || containerPort > 65535) {
+    throw new Error('Port must be an integer between 1 and 65535');
+  }
+  if (containerPort === CODE_SERVER_PORT) {
+    throw new Error(`Port ${CODE_SERVER_PORT} is reserved for code-server`);
+  }
+  if (listForwards(id).some((f) => f.container_port === containerPort)) {
+    throw new Error(`Port ${containerPort} is already forwarded`);
+  }
+  insertForward({
+    instance_id: id,
+    container_port: containerPort,
+    host_port: allocatePort(),
+    created_at: Date.now(),
+  });
+  triggerReconcile();
+  return getInstance(id)!;
+}
+
+/** Drop a forwarded port. Frees its host port; apply via `rebuildInstance`. */
+export function removeForwardedPort(id: string, containerPort: number): InstanceRow {
+  const row = getInstance(id);
+  if (!row) throw new Error('Instance not found');
+  deleteForward(id, containerPort);
+  triggerReconcile();
+  return getInstance(id)!;
+}
+
+/**
+ * Re-run `devcontainer up` to apply the current forwarded-port set, recreating the container
+ * (in-container edits survive — the workspace isn't re-copied). No-op if already (re)building.
+ */
+export function rebuildInstance(id: string): InstanceRow {
+  const row = getInstance(id);
+  if (!row) throw new Error('Instance not found');
+  if (row.status === 'creating') return row; // a build is already in flight
+  updateInstance(id, { status: 'creating', error: null });
+  triggerReconcile();
+  const fresh = getInstance(id)!;
+  appendLog(id, `\n— Rebuilding to apply port changes —\n`);
+  void provision(fresh);
+  return fresh;
 }
 
 export async function startInstance(id: string): Promise<InstanceRow> {
@@ -361,6 +470,7 @@ export async function deleteInstance(id: string): Promise<void> {
   if (!row) return;
   if (row.container_id) await removeContainer(row.container_id);
   await rm(join(INSTANCES_DIR, id), { recursive: true, force: true });
+  deleteForwards(id);
   deleteInstanceRow(id);
   registry.delete(id);
   stopHealthMonitor(id);

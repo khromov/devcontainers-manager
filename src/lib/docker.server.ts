@@ -1,6 +1,8 @@
+import { dockerEnv } from './config.server.ts';
+
 /** Run a command to completion, capturing stdout/stderr and the exit code. */
 async function run(cmd: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
-  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', env: dockerEnv() });
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),

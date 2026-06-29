@@ -1,3 +1,9 @@
+/** One published container→host port mapping, reachable at http://localhost:<host_port>. */
+export interface PortForward {
+  container_port: number;
+  host_port: number;
+}
+
 /** Client-safe shape of an instance, mirrors the server's InstanceRow. */
 export interface Instance {
   id: string;
@@ -14,6 +20,8 @@ export interface Instance {
   git_branch: string | null;
   /** Live signal raised by the in-container Claude hook: task done, waiting on input, or none. */
   attention: 'done' | 'waiting' | null;
+  /** App ports published from the container, each on its own unique host port. */
+  forwarded_ports: PortForward[];
 }
 
 /**

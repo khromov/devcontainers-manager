@@ -6,6 +6,7 @@ import {
   COPY_IGNORE,
   DEFAULT_IMAGE,
   devcontainerBin,
+  dockerEnv,
 } from './config.server.ts';
 
 const CODE_SERVER_FEATURE = 'ghcr.io/coder/devcontainer-features/code-server:1';
@@ -120,20 +121,73 @@ type DevcontainerConfig = {
   image?: string;
   features?: Record<string, unknown>;
   appPort?: number | string | (number | string)[];
+  forwardPorts?: (number | string)[];
   postStartCommand?: unknown;
   runArgs?: string[];
   [key: string]: unknown;
 };
 
+/** Container port from an `appPort`/`forwardPorts` entry: a number, or the last `:`-segment of a string. */
+function containerPortOf(entry: number | string): number {
+  if (typeof entry === 'number') return entry;
+  const last = entry.split(':').pop() ?? '';
+  return Number.parseInt(last, 10);
+}
+
+/**
+ * Read the container ports a project *declares* it wants forwarded, from a pristine
+ * (pre-injection) devcontainer.json: `forwardPorts` plus any `appPort` entries. Returns a
+ * deduped list with code-server's own port excluded — these become the seeded forwards.
+ */
+export async function readDeclaredContainerPorts(workspaceDir: string): Promise<number[]> {
+  const target = configPath(workspaceDir);
+  if (!existsSync(target)) return [];
+  let config: DevcontainerConfig;
+  try {
+    config = JSON.parse(stripJsonc(await readFile(target, 'utf8'))) as DevcontainerConfig;
+  } catch {
+    return []; // unparseable here surfaces as a clear error later in writeOverrideConfig
+  }
+
+  const entries: (number | string)[] = [];
+  if (Array.isArray(config.forwardPorts)) entries.push(...config.forwardPorts);
+  if (Array.isArray(config.appPort)) entries.push(...config.appPort);
+  else if (config.appPort !== undefined) entries.push(config.appPort);
+
+  const ports = new Set<number>();
+  for (const entry of entries) {
+    const port = containerPortOf(entry);
+    if (Number.isInteger(port) && port > 0 && port <= 65535 && port !== CODE_SERVER_PORT) {
+      ports.add(port);
+    }
+  }
+  return [...ports];
+}
+
 /** Maps `host.docker.internal` to the host so the in-container attention bridge resolves. */
 const HOST_GATEWAY_ARG = '--add-host=host.docker.internal:host-gateway';
 
+/** One published container→host port mapping injected into `appPort`. */
+export interface PortForward {
+  container_port: number;
+  host_port: number;
+}
+
 /**
- * Inject code-server + a host port publish into the copied workspace's devcontainer.json,
+ * Inject code-server + the published host ports into the copied workspace's devcontainer.json,
  * creating a default-image config if the folder has none. Operates on the copy, so
  * rewriting/normalizing the file is safe.
+ *
+ * `appPort` is rendered *deterministically* from `hostPort` (code-server) plus `forwards` — it
+ * deliberately discards whatever the file held, so removing a forward actually drops its mapping.
+ * The project's own declared ports are preserved because they're captured as forwards upstream
+ * (see `readDeclaredContainerPorts` / `seedDeclaredPorts`).
  */
-export async function writeOverrideConfig(workspaceDir: string, hostPort: number): Promise<void> {
+export async function writeOverrideConfig(
+  workspaceDir: string,
+  hostPort: number,
+  forwards: PortForward[] = [],
+): Promise<void> {
   const target = configPath(workspaceDir);
   let config: DevcontainerConfig = {};
 
@@ -156,15 +210,13 @@ export async function writeOverrideConfig(workspaceDir: string, hostPort: number
     [CODE_SERVER_FEATURE]: { host: '0.0.0.0', port: CODE_SERVER_PORT, auth: 'none' },
   };
 
-  // Publish the in-container code-server port on a unique host port, bound to
-  // loopback only — instances are reachable solely via the authed Mochi proxy.
-  const portMapping = `127.0.0.1:${hostPort}:${CODE_SERVER_PORT}`;
-  const existingPorts = config.appPort;
-  const ports = new Set<number | string>();
-  if (Array.isArray(existingPorts)) existingPorts.forEach((p) => ports.add(p));
-  else if (existingPorts !== undefined) ports.add(existingPorts);
-  ports.add(portMapping);
-  config.appPort = [...ports];
+  // Publish code-server plus each forwarded port on its unique host port, bound to
+  // loopback. code-server stays reachable solely via the authed Mochi proxy; forwarded
+  // app ports are opened for direct `http://localhost:<host_port>` access.
+  config.appPort = [
+    `127.0.0.1:${hostPort}:${CODE_SERVER_PORT}`,
+    ...forwards.map((f) => `127.0.0.1:${f.host_port}:${f.container_port}`),
+  ];
 
   // Ensure host.docker.internal resolves inside the container (it isn't automatic on
   // Colima/Linux Docker) so the Claude attention hook can reach the manager.
@@ -210,7 +262,7 @@ export async function devcontainerUp(
 ): Promise<UpResult> {
   const proc = Bun.spawn(
     [devcontainerBin(), 'up', '--workspace-folder', workspaceDir, '--remove-existing-container'],
-    { cwd: workspaceDir, stdout: 'pipe', stderr: 'pipe' },
+    { cwd: workspaceDir, stdout: 'pipe', stderr: 'pipe', env: dockerEnv() },
   );
 
   let stdoutText = '';

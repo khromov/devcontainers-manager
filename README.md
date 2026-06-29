@@ -29,5 +29,6 @@ bun test           # run tests
 
 - `PORT` — server port (default `3333`)
 - `DATA_DIR` — where state lives (default `~/.devcontainers-manager`)
+- `DOCKER_HOST` — Docker daemon socket/URL to connect to (e.g. `unix://$HOME/.colima/default/docker.sock` or `tcp://1.2.3.4:2375`); defaults to your active Docker context
 - `BASIC_AUTH_PASSWORD` — enables HTTP Basic Auth over the whole UI (disabled when unset)
 - `DISABLE_OPEN_BROWSER=1` — skip opening the browser on startup

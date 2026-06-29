@@ -44,6 +44,22 @@ export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
  */
 export const COPY_IGNORE = new Set(['node_modules']);
 
+/**
+ * Docker daemon to connect to, e.g. `unix:///var/run/docker.sock`,
+ * `unix://$HOME/.colima/default/docker.sock`, or `tcp://1.2.3.4:2375`. When unset, the
+ * docker/devcontainer CLIs fall back to their own resolution (current Docker context).
+ * Standard `DOCKER_HOST` so it interoperates with existing Docker tooling.
+ */
+export const DOCKER_HOST = process.env.DOCKER_HOST?.trim() || '';
+
+/**
+ * Environment for spawned `docker`/`devcontainer` processes: the inherited env with
+ * `DOCKER_HOST` applied when configured, so every Docker operation targets the same daemon.
+ */
+export function dockerEnv(): Record<string, string | undefined> {
+  return DOCKER_HOST ? { ...process.env, DOCKER_HOST } : process.env;
+}
+
 /** Resolve the bundled @devcontainers/cli binary, preferring the local install. */
 export function devcontainerBin(): string {
   return join(process.cwd(), 'node_modules', '.bin', 'devcontainer');

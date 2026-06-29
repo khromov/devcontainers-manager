@@ -55,6 +55,61 @@
   );
 
   const url = $derived(instance ? ideUrl(instance) : '#');
+
+  // --- Forwarded ports ------------------------------------------------------
+  let newPort = $state('');
+  let portError = $state<string | null>(null);
+  // Set when the forward set changes this session; cleared once a rebuild applies it.
+  let pendingRebuild = $state(false);
+  const forwards = $derived(instance?.forwarded_ports ?? []);
+  const building = $derived(instance?.status === 'creating');
+
+  async function portAction(run: () => Promise<Response>): Promise<boolean> {
+    portError = null;
+    try {
+      const res = await run();
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: { message: string } } | null;
+        throw new Error(data?.error?.message ?? 'Request failed');
+      }
+      return true;
+    } catch (err) {
+      portError = (err as Error).message;
+      return false;
+    }
+  }
+
+  async function addPort(e: Event) {
+    e.preventDefault();
+    const port = Number.parseInt(newPort, 10);
+    if (!Number.isInteger(port)) {
+      portError = 'Enter a port number';
+      return;
+    }
+    const ok = await portAction(() =>
+      fetch(`/api/instances/${id}/ports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port }),
+      }),
+    );
+    if (ok) {
+      newPort = '';
+      pendingRebuild = true;
+    }
+  }
+
+  async function removePort(port: number) {
+    const ok = await portAction(() =>
+      fetch(`/api/instances/${id}/ports/${port}`, { method: 'DELETE' }),
+    );
+    if (ok) pendingRebuild = true;
+  }
+
+  async function rebuild() {
+    const ok = await portAction(() => fetch(`/api/instances/${id}/rebuild`, { method: 'POST' }));
+    if (ok) pendingRebuild = false;
+  }
 </script>
 
 <header class="topbar">
@@ -83,6 +138,51 @@
   <div class="healthslot">
     <HealthBox {health} {lastFetchedAt} />
   </div>
+
+  <section class="ports">
+    <div class="ports-bar">
+      <span>Forwarded ports</span>
+      {#if pendingRebuild}
+        <button class="rebuild" onclick={rebuild} disabled={building}>Rebuild to apply</button>
+      {/if}
+    </div>
+    <div class="ports-body">
+      {#if forwards.length}
+        <ul class="port-list">
+          {#each forwards as f (f.container_port)}
+            <li>
+              <span class="cp">:{f.container_port}</span>
+              <span class="arr">→</span>
+              <a href={`http://localhost:${f.host_port}`} target="_blank" rel="noopener"
+                >localhost:{f.host_port} <ArrowUpRight size={12} /></a
+              >
+              <button class="rm" title="Remove" onclick={() => removePort(f.container_port)}>×</button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="empty">No ports forwarded yet.</p>
+      {/if}
+
+      <form class="add" onsubmit={addPort}>
+        <input
+          type="number"
+          min="1"
+          max="65535"
+          placeholder="container port (e.g. 3000)"
+          bind:value={newPort}
+          spellcheck="false"
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      {#if portError}<p class="port-err">{portError}</p>{/if}
+      {#if pendingRebuild}
+        <p class="hint pending">Port changes apply on the next rebuild (recreates the container).</p>
+      {/if}
+      <p class="hint">Your app must bind to <code>0.0.0.0</code> inside the container to be reachable.</p>
+    </div>
+  </section>
 
   <div class="logwrap">
     <div class="logbar">Boot log</div>
@@ -236,6 +336,151 @@
   }
   .healthslot {
     margin-bottom: 18px;
+  }
+  .ports {
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    margin-bottom: 18px;
+  }
+  .ports-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    background: var(--ink);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .rebuild {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 9px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--bg);
+    cursor: pointer;
+  }
+  .rebuild:hover:not(:disabled) {
+    background: transparent;
+    color: var(--bg);
+  }
+  .rebuild:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .ports-body {
+    padding: 12px 14px 14px;
+    background: var(--bg-card);
+  }
+  .port-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .port-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .port-list .cp {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .port-list .arr {
+    color: var(--ink-faint);
+  }
+  .port-list a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ink-faint);
+  }
+  .port-list a:hover {
+    border-bottom-color: var(--ink);
+  }
+  .rm {
+    margin-left: auto;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    font-size: 15px;
+    border: 1px solid var(--ink-faint);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .rm:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .empty {
+    margin: 0 0 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .add {
+    display: flex;
+    gap: 8px;
+  }
+  .add input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 6px 9px;
+    border: 1px solid var(--ink);
+    background: var(--bg);
+    color: var(--ink);
+    outline: none;
+  }
+  .add button {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 14px;
+    border: 1px solid var(--ink);
+    background: var(--bg-card);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .add button:hover {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .port-err {
+    margin: 10px 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--danger);
+  }
+  .hint {
+    margin: 10px 0 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .hint.pending {
+    color: var(--ink-soft);
+  }
+  .hint code {
+    color: var(--ink);
   }
   .logwrap {
     border: 1px solid var(--ink);

@@ -50,6 +50,19 @@
   </div>
   <div class="path" title={instance.source_path}>{instance.source_path}</div>
   <div class="port">localhost:{instance.host_port}</div>
+  {#if instance.status === 'running' && instance.forwarded_ports.length}
+    <div class="fports">
+      {#each instance.forwarded_ports as f (f.container_port)}
+        <a
+          class="fport"
+          href={`http://localhost:${f.host_port}`}
+          target="_blank"
+          rel="noopener"
+          title={`container :${f.container_port} → host localhost:${f.host_port}`}
+        >:{f.container_port}→{f.host_port}</a>
+      {/each}
+    </div>
+  {/if}
   {#if instance.git_branch}
     <div class="branch" title="Branch checked out in the container">
       <GitBranch size={12} /><span>{instance.git_branch}</span>
@@ -178,6 +191,24 @@
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--ink-faint);
+  }
+  .fports {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .fport {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink);
+    text-decoration: none;
+    border: 1px solid var(--ink-faint);
+    padding: 1px 6px;
+  }
+  .fport:hover {
+    background: var(--ink);
+    color: var(--bg);
   }
   .branch {
     margin-top: 6px;

@@ -35,6 +35,14 @@ export interface InstanceRow {
   remote_user: string | null;
 }
 
+/** One published container→host port mapping for an instance (besides code-server). */
+export interface PortForwardRow {
+  instance_id: string;
+  container_port: number;
+  host_port: number;
+  created_at: number;
+}
+
 // Pin the connection to globalThis so dev-mode hot reload doesn't reopen it.
 const globalForDb = globalThis as unknown as { __dcmDb?: Database };
 
@@ -78,8 +86,44 @@ export function allInstances(): InstanceRow[] {
 }
 
 export function usedPorts(): number[] {
-  const rows = db.query('SELECT host_port FROM instances').all() as { host_port: number }[];
+  // Union code-server's host ports with every forwarded host port so allocation
+  // never hands out one that's already published by either table.
+  const rows = db
+    .query('SELECT host_port FROM instances UNION SELECT host_port FROM port_forwards')
+    .all() as { host_port: number }[];
   return rows.map((r) => r.host_port);
+}
+
+export function listForwards(instanceId: string): PortForwardRow[] {
+  return db
+    .query('SELECT * FROM port_forwards WHERE instance_id = $id ORDER BY container_port')
+    .all({ $id: instanceId }) as PortForwardRow[];
+}
+
+export function allForwards(): PortForwardRow[] {
+  return db.query('SELECT * FROM port_forwards ORDER BY container_port').all() as PortForwardRow[];
+}
+
+export function insertForward(row: PortForwardRow): void {
+  db.query(
+    `INSERT INTO port_forwards (instance_id, container_port, host_port, created_at)
+     VALUES ($instance_id, $container_port, $host_port, $created_at)`,
+  ).run({
+    $instance_id: row.instance_id,
+    $container_port: row.container_port,
+    $host_port: row.host_port,
+    $created_at: row.created_at,
+  });
+}
+
+export function deleteForward(instanceId: string, containerPort: number): void {
+  db.query(
+    'DELETE FROM port_forwards WHERE instance_id = $id AND container_port = $port',
+  ).run({ $id: instanceId, $port: containerPort });
+}
+
+export function deleteForwards(instanceId: string): void {
+  db.query('DELETE FROM port_forwards WHERE instance_id = $id').run({ $id: instanceId });
 }
 
 export function updateInstance(

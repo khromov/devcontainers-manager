@@ -5,10 +5,13 @@ import { claudeAuthStatus } from './lib/claude.server.ts';
 import { ghAuthStatus } from './lib/gh.server.ts';
 import { browse } from './lib/picker.server.ts';
 import {
+  addForwardedPort,
   createInstance,
   deleteAllInstances,
   deleteInstance,
   listInstances,
+  rebuildInstance,
+  removeForwardedPort,
   renameInstance,
   startInstance,
   stopInstance,
@@ -143,6 +146,40 @@ export const routes: Record<string, MochiRouteValue> = {
     if (!body?.name) return apiError(400, 'name is required');
     try {
       return json({ instance: renameInstance(params.id!, body.name) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  // Forwarded ports: add (POST {port}) / remove (DELETE) a container port mapping.
+  // Both only mutate the persisted set — call /rebuild to recreate the container with it.
+  '/api/instances/:id/ports': Mochi.api(async ({ method, params, request }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    const body = (await request.json().catch(() => null)) as { port?: number } | null;
+    if (typeof body?.port !== 'number') return apiError(400, 'port (number) is required');
+    try {
+      return json({ instance: addForwardedPort(params.id!, body.port) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  '/api/instances/:id/ports/:port': Mochi.api(async ({ method, params }) => {
+    if (method !== 'DELETE') return apiError(405, 'Method Not Allowed');
+    const port = Number.parseInt(params.port!, 10);
+    if (!Number.isInteger(port)) return apiError(400, 'Invalid port');
+    try {
+      return json({ instance: removeForwardedPort(params.id!, port) });
+    } catch (err) {
+      return apiError(400, (err as Error).message);
+    }
+  }),
+
+  // Re-run `devcontainer up` to apply the current forwarded-port set (recreates the container).
+  '/api/instances/:id/rebuild': Mochi.api(async ({ method, params }) => {
+    if (method !== 'POST') return apiError(405, 'Method Not Allowed');
+    try {
+      return json({ instance: rebuildInstance(params.id!) });
     } catch (err) {
       return apiError(400, (err as Error).message);
     }
