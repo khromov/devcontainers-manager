@@ -1,7 +1,7 @@
 <script lang="ts">
   import { type Instance } from '../types.ts';
   import Avatar from './Avatar.svelte';
-  import { GitBranch } from '@lucide/svelte';
+  import { Cable, GitBranch } from '@lucide/svelte';
 
   let {
     instance,
@@ -51,16 +51,19 @@
   <div class="path" title={instance.source_path}>{instance.source_path}</div>
   <div class="port">localhost:{instance.host_port}</div>
   {#if instance.status === 'running' && instance.forwarded_ports.length}
-    <div class="fports">
-      {#each instance.forwarded_ports as f (f.container_port)}
-        <a
-          class="fport"
-          href={`http://localhost:${f.host_port}`}
-          target="_blank"
-          rel="noopener"
-          title={`container :${f.container_port} → host localhost:${f.host_port}`}
-        >:{f.container_port}→{f.host_port}</a>
-      {/each}
+    <div class="fports" title="Forwarded ports — click to open">
+      <Cable size={12} />
+      <span class="list">
+        {#each instance.forwarded_ports as f (f.container_port)}
+          <a
+            class="fport"
+            href={`http://localhost:${f.host_port}`}
+            target="_blank"
+            rel="noopener"
+            title={`container :${f.container_port} → http://localhost:${f.host_port}`}
+          >{f.container_port}</a>
+        {/each}
+      </span>
     </div>
   {/if}
   {#if instance.git_branch}
@@ -192,23 +195,39 @@
     font-size: 12px;
     color: var(--ink-faint);
   }
+  /* Mini badge mirroring .branch: icon + a comma-separated list of forwarded ports. */
   .fports {
     margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+    border: 1px solid var(--ink-faint);
+    padding: 2px 7px;
+  }
+  .fports :global(svg) {
+    flex: none;
+  }
+  /* Flex list drops the source whitespace between links, so commas sit flush. */
+  .list {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    min-width: 0;
   }
   .fport {
-    font-family: var(--font-mono);
-    font-size: 11px;
     color: var(--ink);
     text-decoration: none;
-    border: 1px solid var(--ink-faint);
-    padding: 1px 6px;
   }
   .fport:hover {
-    background: var(--ink);
-    color: var(--bg);
+    text-decoration: underline;
+  }
+  .fport:not(:last-child)::after {
+    content: ',';
+    color: var(--ink-faint);
+    margin-right: 4px;
   }
   .branch {
     margin-top: 6px;
