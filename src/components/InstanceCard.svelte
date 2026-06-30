@@ -26,7 +26,7 @@
 
 <li class="card">
   <div class="card-head">
-    <Avatar id={instance.id} name={instance.name} />
+    <Avatar id={instance.id} name={instance.name} interactive />
     {#if editing}
       <!-- svelte-ignore a11y_autofocus -->
       <input
