@@ -1,19 +1,18 @@
-import { dockerEnv } from './config.server.ts';
+import { getDocker } from './docker-client.server.ts';
 
-/** Run a command to completion, capturing stdout/stderr and the exit code. */
-async function run(cmd: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
-  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', env: dockerEnv() });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { ok: code === 0, stdout: stdout.trim(), stderr: stderr.trim() };
+/** The HTTP status code dockerode attaches to a rejected request, if any. */
+function statusOf(err: unknown): number | undefined {
+  return (err as { statusCode?: number })?.statusCode;
 }
 
-/** True if the Docker CLI is installed and the daemon is reachable. */
+/** True if the Docker daemon is reachable. */
 export async function dockerAvailable(): Promise<boolean> {
-  return (await run(['docker', 'info', '--format', '{{.ServerVersion}}'])).ok;
+  try {
+    await (await getDocker()).ping();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -23,18 +22,25 @@ export async function dockerAvailable(): Promise<boolean> {
  * Returns null when the daemon is unreachable.
  */
 export async function dockerArch(): Promise<string | null> {
-  const res = await run(['docker', 'version', '--format', '{{.Server.Arch}}']);
-  return res.ok && res.stdout ? res.stdout : null;
+  try {
+    const arch = (await (await getDocker()).version()).Arch;
+    return arch || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Whether a container exists and is currently running. Uses the Docker CLI so it
- * honors the user's active Docker context (Docker Desktop, Colima, OrbStack, remote)
- * instead of guessing a socket path.
+ * Whether a container exists and is currently running. Resolves the active Docker
+ * context (Docker Desktop, Colima, OrbStack, remote) via the shared dockerode client.
  */
 export async function isRunning(containerId: string): Promise<boolean> {
-  const res = await run(['docker', 'inspect', '-f', '{{.State.Running}}', containerId]);
-  return res.ok && res.stdout === 'true';
+  try {
+    const info = await (await getDocker()).getContainer(containerId).inspect();
+    return info.State?.Running === true;
+  } catch {
+    return false; // missing container (404) or daemon unreachable
+  }
 }
 
 /**
@@ -45,18 +51,15 @@ export async function isRunning(containerId: string): Promise<boolean> {
  * binding; `[]` on any failure.
  */
 export async function publishedContainerPorts(containerId: string): Promise<number[]> {
-  const res = await run([
-    'docker', 'inspect', '-f', '{{json .NetworkSettings.Ports}}', containerId,
-  ]);
-  if (!res.ok) return [];
   let ports: Record<string, { HostPort?: string }[] | null>;
   try {
-    ports = JSON.parse(res.stdout) as Record<string, { HostPort?: string }[] | null>;
+    const info = await (await getDocker()).getContainer(containerId).inspect();
+    ports = (info.NetworkSettings?.Ports ?? {}) as Record<string, { HostPort?: string }[] | null>;
   } catch {
     return [];
   }
   const open = new Set<number>();
-  for (const [key, bindings] of Object.entries(ports ?? {})) {
+  for (const [key, bindings] of Object.entries(ports)) {
     if (!bindings || bindings.length === 0) continue; // exposed but not published
     const port = Number.parseInt(key, 10); // "3000/tcp" → 3000
     if (Number.isInteger(port) && port > 0) open.add(port);
@@ -65,15 +68,29 @@ export async function publishedContainerPorts(containerId: string): Promise<numb
 }
 
 export async function startContainer(containerId: string): Promise<boolean> {
-  return (await run(['docker', 'start', containerId])).ok;
+  try {
+    await (await getDocker()).getContainer(containerId).start();
+    return true;
+  } catch (err) {
+    return statusOf(err) === 304; // already started
+  }
 }
 
 export async function stopContainer(containerId: string): Promise<boolean> {
-  return (await run(['docker', 'stop', containerId])).ok;
+  try {
+    await (await getDocker()).getContainer(containerId).stop();
+    return true;
+  } catch (err) {
+    return statusOf(err) === 304; // already stopped
+  }
 }
 
 /** Force-remove a container; treats an already-absent container as success. */
 export async function removeContainer(containerId: string): Promise<boolean> {
-  const res = await run(['docker', 'rm', '-f', containerId]);
-  return res.ok || res.stderr.includes('No such container');
+  try {
+    await (await getDocker()).getContainer(containerId).remove({ force: true });
+    return true;
+  } catch (err) {
+    return statusOf(err) === 404; // no such container
+  }
 }
