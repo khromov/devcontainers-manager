@@ -22,6 +22,13 @@ describe('injection registry', () => {
     expect(git!.check).toBeUndefined();
   });
 
+  test('git-identity is registered with an auth chip and a health check', () => {
+    const identity = injections.find((i) => i.id === 'git-identity');
+    expect(identity).toBeDefined();
+    expect(identity!.auth).toBeDefined();
+    expect(typeof identity!.check).toBe('function');
+  });
+
   test('claude-skip-permissions is registered with a health check', () => {
     const alias = injections.find((i) => i.id === 'claude-skip-permissions');
     expect(alias).toBeDefined();
