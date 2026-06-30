@@ -1,4 +1,6 @@
 import Docker from 'dockerode';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { DOCKER_HOST, dockerEnv } from './config.server.ts';
 
 /**
@@ -42,9 +44,29 @@ async function dockerContextHost(): Promise<string> {
 }
 
 /**
+ * Load the TLS client materials Docker uses for a secured TCP daemon, from
+ * `DOCKER_CERT_PATH` (or `~/.docker` as Docker itself defaults). Returns an empty
+ * object if a file is missing so the connection can still be attempted (and fail
+ * with a clear TLS error) rather than throwing here.
+ */
+function tlsMaterials(): { ca?: Buffer; cert?: Buffer; key?: Buffer } {
+  const dir = process.env.DOCKER_CERT_PATH?.trim() || join(process.env.HOME ?? '', '.docker');
+  const read = (name: string): Buffer | undefined => {
+    try {
+      return readFileSync(join(dir, name));
+    } catch {
+      return undefined;
+    }
+  };
+  return { ca: read('ca.pem'), cert: read('cert.pem'), key: read('key.pem') };
+}
+
+/**
  * Parse a `DOCKER_HOST`-style daemon URL into dockerode connection options.
  *   `unix:///path/to.sock`  → { socketPath: '/path/to.sock' }
  *   `tcp://host:port`       → { host, port, protocol }
+ * When `DOCKER_TLS_VERIFY` is set, switches to https and loads the CA/cert/key
+ * from `DOCKER_CERT_PATH` (default `~/.docker`), matching the docker CLI.
  * (Windows `npipe://` is not supported here — this app runs on macOS/Linux.)
  */
 export function parseDockerHost(host: string): Docker.DockerOptions {
@@ -53,9 +75,11 @@ export function parseDockerHost(host: string): Docker.DockerOptions {
   }
   const tls = (process.env.DOCKER_TLS_VERIFY ?? '') !== '';
   const url = new URL(host.includes('://') ? host : `tcp://${host}`);
-  return {
+  const base: Docker.DockerOptions = {
     host: url.hostname,
     port: url.port ? Number.parseInt(url.port, 10) : tls ? 2376 : 2375,
     protocol: tls ? 'https' : 'http',
   };
+  // A TLS daemon needs the client cert/key (and CA) or the handshake fails.
+  return tls ? { ...base, ...tlsMaterials() } : base;
 }

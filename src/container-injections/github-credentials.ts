@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { GITHUB_TOKEN } from '../lib/config.server.ts';
 import { execInContainer } from '../lib/exec.server.ts';
+import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const GH_HOST = 'github.com';
@@ -25,18 +26,8 @@ interface GhCredentials {
  */
 export async function readGhToken(): Promise<{ token: string; source: string } | null> {
   if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
-  try {
-    const proc = Bun.spawn(['gh', 'auth', 'token', '--hostname', GH_HOST], {
-      stdout: 'pipe',
-      stderr: 'ignore',
-    });
-    const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    const token = out.trim();
-    return code === 0 && token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;
-  } catch {
-    // gh not installed on host.
-    return null;
-  }
+  const token = await spawnCapture(['gh', 'auth', 'token', '--hostname', GH_HOST]);
+  return token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;
 }
 
 /**

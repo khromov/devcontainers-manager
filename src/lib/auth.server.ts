@@ -1,5 +1,6 @@
 import type { Handle } from 'mochi-framework';
 import { BASIC_AUTH_PASSWORD, BASIC_AUTH_USERNAME } from './config.server.ts';
+import { timingSafeEqualStr } from './crypto.server.ts';
 
 const REALM = 'Devcontainers Manager';
 
@@ -23,7 +24,11 @@ function credentialsOk(header: string | null): boolean {
   if (sep === -1) return false;
   const user = decoded.slice(0, sep);
   const pass = decoded.slice(sep + 1);
-  return user === BASIC_AUTH_USERNAME && pass === BASIC_AUTH_PASSWORD;
+  // Constant-time compares so a wrong username/password can't be distinguished by
+  // response timing. Both halves always run — no `&&` short-circuit on the first.
+  const userOk = timingSafeEqualStr(user, BASIC_AUTH_USERNAME);
+  const passOk = timingSafeEqualStr(pass, BASIC_AUTH_PASSWORD);
+  return userOk && passOk;
 }
 
 /**

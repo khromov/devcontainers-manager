@@ -2,6 +2,7 @@
   import Check from '@lucide/svelte/icons/check';
   import X from '@lucide/svelte/icons/x';
   import type { InstanceHealth } from '../types.ts';
+  import Skeleton from './Skeleton.svelte';
 
   let {
     health = null,
@@ -56,8 +57,8 @@
       {#each Array(4) as _, i (i)}
         <div class="hrow">
           <span class="box idle"></span>
-          <span class="skel skel-narrow"></span>
-          <span class="skel skel-pill"></span>
+          <Skeleton width="120px" />
+          <Skeleton variant="pill" />
         </div>
       {/each}
     {/if}
@@ -140,29 +141,5 @@
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-faint);
-  }
-  .skel {
-    display: inline-block;
-    height: 0.95em;
-    background: linear-gradient(90deg, var(--rule-soft) 25%, var(--bg-card) 50%, var(--rule-soft) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s linear infinite;
-    vertical-align: middle;
-  }
-  .skel-narrow {
-    width: 120px;
-  }
-  .skel-pill {
-    width: 64px;
-    height: 18px;
-    border-radius: 999px;
-  }
-  @keyframes shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
   }
 </style>

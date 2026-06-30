@@ -28,6 +28,7 @@ import {
 } from './lib/db.server.ts';
 import { DEFAULT_IMAGE } from './lib/config.server.ts';
 import { clearAttention, setAttention } from './lib/bridge.server.ts';
+import { timingSafeEqualStr } from './lib/crypto.server.ts';
 import { proxyRoutes } from './lib/proxy.server.ts';
 
 async function preflight() {
@@ -250,8 +251,12 @@ export const routes: Record<string, MochiRouteValue> = {
     const state = url.searchParams.get('state');
     if (!id || !token) return apiError(400, 'id and token are required');
     const row = getInstance(id);
-    if (!row) return apiError(404, 'Instance not found');
-    if (!row.bridge_token || token !== row.bridge_token) return apiError(403, 'Invalid token');
+    // Return a uniform 403 whether the instance is missing or the token is wrong,
+    // and use a constant-time compare — so an attacker can't enumerate which
+    // instance ids exist, nor probe the token byte-by-byte via response timing.
+    if (!row || !row.bridge_token || !timingSafeEqualStr(token, row.bridge_token)) {
+      return apiError(403, 'Forbidden');
+    }
     if (state === 'done') setAttention(id, 'done');
     else if (state === 'waiting') setAttention(id, 'waiting');
     else clearAttention(id); // 'busy' / anything else → Claude resumed, dismiss the pulse

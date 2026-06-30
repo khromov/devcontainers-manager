@@ -194,10 +194,30 @@ export function streamClose(ws: ServerWebSocket<unknown>): void {
   }
 }
 
+// --- Host-port allocation --------------------------------------------------
+// `usedPorts()` reads the DB, but a port isn't in the DB until its row/forward is
+// inserted — and inserts can lag the allocation (e.g. the seed loop computes a
+// port, then inserts; `createInstance` allocates host_port well before its row is
+// written). Two concurrent allocations could therefore both pick the same "free"
+// port. We additionally hold a short-lived in-memory reservation set, pinned to
+// globalThis (survives dev hot-reload), and union it with the DB ports so each
+// allocation sees the ones still in flight. Reservations that have since landed
+// in the DB are pruned on every call, so the set never grows unbounded.
+const globalForPorts = globalThis as unknown as { __dcmReservedPorts?: Set<number> };
+const reservedPorts: Set<number> = (globalForPorts.__dcmReservedPorts ??= new Set());
+
 function allocatePort(): number {
-  const taken = new Set(usedPorts());
+  const dbPorts = new Set(usedPorts());
+  // Drop reservations that have already been persisted — they're now covered by
+  // the DB set, so keeping them reserved would only leak the range.
+  for (const port of [...reservedPorts]) {
+    if (dbPorts.has(port)) reservedPorts.delete(port);
+  }
   for (let port = PORT_BASE; port <= PORT_MAX; port++) {
-    if (!taken.has(port)) return port;
+    if (!dbPorts.has(port) && !reservedPorts.has(port)) {
+      reservedPorts.add(port);
+      return port;
+    }
   }
   throw new Error('No free host ports available.');
 }

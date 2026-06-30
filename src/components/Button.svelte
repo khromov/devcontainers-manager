@@ -7,6 +7,7 @@
   let {
     variant = 'default',
     size = 'md',
+    ghost = false,
     icon,
     iconSize,
     href,
@@ -17,6 +18,8 @@
   }: {
     variant?: Variant;
     size?: Size;
+    /** Dashed-outline treatment that fills on hover — used for secondary links. */
+    ghost?: boolean;
     /** Optional leading icon component, e.g. a lucide icon like `Plus`. */
     icon?: Component<{ size?: number }>;
     /** Override the icon size; defaults to a size that scales with `size`. */
@@ -34,12 +37,12 @@
 </script>
 
 {#if href}
-  <a class="btn {variant} {size}" {href} {...rest}>
+  <a class="btn {variant} {size}" class:ghost {href} {...rest}>
     {#if Icon}<Icon size={resolvedIconSize} />{/if}
     {@render children?.()}
   </a>
 {:else}
-  <button class="btn {variant} {size}" {onclick} {disabled} {...rest}>
+  <button class="btn {variant} {size}" class:ghost {onclick} {disabled} {...rest}>
     {#if Icon}<Icon size={resolvedIconSize} />{/if}
     {@render children?.()}
   </button>
@@ -95,6 +98,17 @@
   .btn.primary:hover:not(:disabled) {
     background: var(--bg-card);
     color: var(--ink);
+  }
+
+  /* Ghost: dashed outline that fills in on hover (secondary links like "Details"). */
+  .btn.ghost {
+    background: transparent;
+    border-style: dashed;
+  }
+  .btn.ghost:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--bg);
+    border-style: solid;
   }
 
   /* Danger variant */

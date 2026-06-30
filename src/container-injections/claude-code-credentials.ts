@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { CLAUDE_CODE_TOKEN } from '../lib/config.server.ts';
 import { execInContainer } from '../lib/exec.server.ts';
+import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
@@ -30,18 +31,15 @@ export async function locateClaudeCredentials(): Promise<{ creds: string; source
   }
 
   if (process.platform === 'darwin') {
-    try {
-      const proc = Bun.spawn(
-        ['security', 'find-generic-password', '-s', KEYCHAIN_SERVICE, '-w'],
-        { stdout: 'pipe', stderr: 'ignore' },
-      );
-      const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-      const trimmed = out.trim();
-      if (code === 0 && trimmed && isValid(trimmed)) {
-        return { creds: trimmed, source: `macOS Keychain — "${KEYCHAIN_SERVICE}"` };
-      }
-    } catch {
-      /* fall through to the file check */
+    const out = await spawnCapture([
+      'security',
+      'find-generic-password',
+      '-s',
+      KEYCHAIN_SERVICE,
+      '-w',
+    ]);
+    if (out && isValid(out)) {
+      return { creds: out, source: `macOS Keychain — "${KEYCHAIN_SERVICE}"` };
     }
   }
 
