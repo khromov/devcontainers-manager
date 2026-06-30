@@ -31,7 +31,8 @@
     "typescript": "^6.0.3"
   },
   "overrides": {
-    "msgpackr-extract": "npm:@mochi-framework/msgpackr-extract-stub@*"
+    "msgpackr-extract": "npm:@mochi-framework/msgpackr-extract-stub@*",
+    "svelte": "5.56.4"
   },
   "patchedDependencies": {
     "svelte-check@4.4.7": "patches/svelte-check@4.4.7.patch",
