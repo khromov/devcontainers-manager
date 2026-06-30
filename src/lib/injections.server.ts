@@ -1,5 +1,6 @@
 import type { InstanceRow } from './db.server.ts';
 import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts';
+import { ghCli } from '../container-injections/gh-cli.ts';
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
 import { githubCredentials } from '../container-injections/github-credentials.ts';
 import { attentionHooks } from '../container-injections/attention-hooks.ts';
@@ -54,6 +55,7 @@ export interface Injection {
  */
 export const injections: Injection[] = [
   gitSafeDirectory,
+  ghCli,
   claudeCodeCredentials,
   githubCredentials,
   attentionHooks,
