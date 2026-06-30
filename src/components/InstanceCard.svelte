@@ -76,7 +76,7 @@
     {#if instance.status === 'running'}
       <Button variant="primary" size="sm" href={`/ide/${instance.id}`}>Open IDE</Button>
       <Button size="sm" onclick={() => onact('stop')}>Stop</Button>
-    {:else if instance.status === 'stopped'}
+    {:else if instance.status === 'stopped' || (instance.status === 'error' && instance.container_id)}
       <Button size="sm" onclick={() => onact('start')}>Start</Button>
     {:else if instance.status === 'creating'}
       <Button size="sm" href={`/instances/${instance.id}`}>View logs</Button>

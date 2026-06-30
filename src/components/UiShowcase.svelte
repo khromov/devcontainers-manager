@@ -295,7 +295,11 @@
     </ComponentDemo>
 
     <ComponentDemo title="HealthBox">
-      <HealthBox health={demoHealth} lastFetchedAt={healthLoading ? null : healthFetchedAt} />
+      <HealthBox
+        health={demoHealth}
+        lastFetchedAt={healthLoading ? null : healthFetchedAt}
+        injectionChecks={3}
+      />
       {#snippet controls()}
         <div class="presets">
           <button type="button" onclick={() => (healthFetchedAt = Date.now())}>refresh now</button>

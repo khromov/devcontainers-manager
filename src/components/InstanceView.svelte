@@ -8,7 +8,7 @@
   import { liveSocket, liveStream } from '../live.ts';
   import { apiFetch } from '../api.ts';
 
-  let { id }: { id: string } = $props();
+  let { id, injectionChecks = 0 }: { id: string; injectionChecks?: number } = $props();
 
   let instance = $state<Instance | null>(null);
   let health = $state<InstanceHealth | null>(null);
@@ -135,7 +135,7 @@
   </div>
 
   <div class="healthslot">
-    <HealthBox {health} {lastFetchedAt} />
+    <HealthBox {health} {lastFetchedAt} {injectionChecks} active={instance?.status === 'running'} />
   </div>
 
   <section class="ports">

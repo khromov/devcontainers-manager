@@ -83,7 +83,9 @@ export const routes: Record<string, MochiRouteValue> = {
     serverProps: (_req, params) => {
       // Validate the instance exists, but the view hydrates its data from the stream.
       if (!params.id || !getInstance(params.id)) error(404, 'Instance not found');
-      return { id: params.id };
+      // Registry-derived count of injection-backed health checks, so the health
+      // panel's skeleton renders one row per real check before the first snapshot.
+      return { id: params.id, injectionChecks: injections.filter((i) => i.check).length };
     },
   }),
 
