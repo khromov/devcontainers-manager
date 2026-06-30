@@ -23,7 +23,7 @@ interface GhCredentials {
  * binary, which transparently spans its storage backends (macOS Keychain,
  * encrypted file, or GH_TOKEN). Returns null when no token is available.
  */
-async function readGhToken(): Promise<{ token: string; source: string } | null> {
+export async function readGhToken(): Promise<{ token: string; source: string } | null> {
   if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
   try {
     const proc = Bun.spawn(['gh', 'auth', 'token', '--hostname', GH_HOST], {

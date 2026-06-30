@@ -22,7 +22,7 @@ function isValid(json: string): boolean {
  * and a human-readable description of where it came from, or null if absent.
  * macOS keeps them in the login Keychain; Linux/others use ~/.claude/.credentials.json.
  */
-async function locateClaudeCredentials(): Promise<{ creds: string; source: string } | null> {
+export async function locateClaudeCredentials(): Promise<{ creds: string; source: string } | null> {
   // An explicit token override wins over any host discovery.
   if (CLAUDE_CODE_TOKEN) {
     const creds = JSON.stringify({ claudeAiOauth: { accessToken: CLAUDE_CODE_TOKEN } });
