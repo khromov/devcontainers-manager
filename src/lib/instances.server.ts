@@ -19,6 +19,7 @@ import {
   type InstanceStatus,
 } from './db.server.ts';
 import {
+  dockerAvailable,
   isRunning,
   markGitSafeDirectory,
   removeContainer,
@@ -27,6 +28,7 @@ import {
 } from './docker.server.ts';
 import {
   copyWorkspace,
+  devcontainerCliAvailable,
   devcontainerUp,
   readDeclaredContainerPorts,
   writeOverrideConfig,
@@ -98,16 +100,29 @@ export function subscribeLogs(id: string, onChunk: (chunk: string) => void): () 
 /** A message pushed to clients on the central stream; clients filter by `type`. */
 export type StreamEvent =
   | { type: 'instances'; data: Instance[] }
-  | { type: 'health'; data: { id: string; health: InstanceHealth } };
+  | { type: 'health'; data: { id: string; health: InstanceHealth } }
+  | { type: 'preflight'; data: { docker: boolean; cli: boolean } };
 
 interface StreamHub {
   sockets: Set<ServerWebSocket<unknown>>;
   timer: ReturnType<typeof setInterval> | null;
   lastListJson: string;
+  lastPreflightJson: string;
 }
 
 const globalForHub = globalThis as unknown as { __dcmHub?: StreamHub };
-const hub: StreamHub = (globalForHub.__dcmHub ??= { sockets: new Set(), timer: null, lastListJson: '' });
+const hub: StreamHub = (globalForHub.__dcmHub ??= {
+  sockets: new Set(),
+  timer: null,
+  lastListJson: '',
+  lastPreflightJson: '',
+});
+
+/** Background preflight subset — docker + CLI only; auth stays SSR-only. */
+async function backgroundPreflight(): Promise<{ docker: boolean; cli: boolean }> {
+  const [docker, cli] = await Promise.all([dockerAvailable(), devcontainerCliAvailable()]);
+  return { docker, cli };
+}
 
 /** Serialize an event once and fan it out, dropping sockets that have closed. */
 function broadcast(event: StreamEvent): void {
@@ -136,10 +151,20 @@ export function broadcastHealth(id: string, health: InstanceHealth): void {
 
 async function reconcileAndBroadcast(force = false): Promise<void> {
   const list = await listInstances();
-  const json = JSON.stringify(list);
-  if (!force && json === hub.lastListJson) return;
-  hub.lastListJson = json;
-  broadcast({ type: 'instances', data: list });
+  const listJson = JSON.stringify(list);
+  if (force || listJson !== hub.lastListJson) {
+    hub.lastListJson = listJson;
+    broadcast({ type: 'instances', data: list });
+  }
+  // Live preflight: re-probe docker + CLI so the "Setup needed" banner reflects
+  // current state without a reload. Diffed independently so a preflight flip
+  // still pushes when the instance list is unchanged. Auth stays SSR-only.
+  const pf = await backgroundPreflight();
+  const pfJson = JSON.stringify(pf);
+  if (force || pfJson !== hub.lastPreflightJson) {
+    hub.lastPreflightJson = pfJson;
+    broadcast({ type: 'preflight', data: pf });
+  }
 }
 
 /** Notify all clients that the instance list changed (immediate push). */
@@ -150,11 +175,13 @@ export function triggerReconcile(): void {
 /** A new `/api/stream` socket connected: register it, seed it, and ensure the tick runs. */
 export function streamOpen(ws: ServerWebSocket<unknown>): void {
   hub.sockets.add(ws);
-  if (!hub.timer) hub.timer = setInterval(() => void reconcileAndBroadcast(), 3000);
+  if (!hub.timer) hub.timer = setInterval(() => void reconcileAndBroadcast(), 5000);
   // Seed the freshly-connected client: full list now, plus whatever health we
   // already have. Newly-running instances fill in on the next monitor tick.
   void listInstances().then((list) => sendTo(ws, { type: 'instances', data: list }));
   for (const snap of currentHealthSnapshots()) sendTo(ws, { type: 'health', data: snap });
+  // Seed current preflight so a fresh/reconnected client is correct without waiting a tick.
+  void backgroundPreflight().then((pf) => sendTo(ws, { type: 'preflight', data: pf }));
 }
 
 /** A `/api/stream` socket closed: unregister it and stop the tick when idle. */

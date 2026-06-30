@@ -21,6 +21,10 @@
   // Seeding from the SSR snapshot is intentional — the live stream overwrites it.
   // svelte-ignore state_referenced_locally
   let instances = $state<Instance[]>(snapshot);
+  // Live preflight: seeded from the SSR prop, then kept current by 'preflight'
+  // stream events (docker + CLI). Auth is preserved — it's only probed at SSR.
+  // svelte-ignore state_referenced_locally
+  let livePreflight = $state<Preflight>(preflight);
   // svelte-ignore state_referenced_locally
   let loaded = $state(snapshot.length > 0);
   const running = $derived(instances.filter((i) => i.status === 'running'));
@@ -121,6 +125,10 @@
     return liveSocket('/api/stream', (raw) => {
       try {
         const msg = JSON.parse(raw) as StreamEvent;
+        if (msg.type === 'preflight') {
+          livePreflight = { ...livePreflight, docker: msg.data.docker, cli: msg.data.cli };
+          return;
+        }
         if (msg.type !== 'instances') return;
         const next = msg.data;
         const nextAttention: Record<string, 'done' | 'waiting' | null> = {};
@@ -154,7 +162,7 @@
   {#if onIde}
     <IdeBar {running} {active} {attention} onselect={(id) => navigate(`/ide/${id}`)} />
   {:else}
-    <DashboardView {preflight} {instances} {loaded} />
+    <DashboardView preflight={livePreflight} {instances} {loaded} />
   {/if}
 
   <!-- Persistent panes: always mounted so iframes survive navigation; hidden on

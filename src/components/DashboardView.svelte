@@ -21,8 +21,7 @@
   let editingId = $state<string | null>(null);
   let editingName = $state('');
 
-  // svelte-ignore state_referenced_locally
-  const ready = preflight.docker && preflight.cli;
+  const ready = $derived(preflight.docker && preflight.cli);
 
   async function createFrom(sourcePath: string) {
     browserOpen = false;
