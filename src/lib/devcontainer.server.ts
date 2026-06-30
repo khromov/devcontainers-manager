@@ -21,6 +21,11 @@ const CODE_SERVER_SETTINGS = {
   'chat.commandCenter.enabled': false,
   // Run the folderOpen Terminal task (below) without prompting on first open.
   'task.allowAutomaticTasks': 'on',
+  // Defeat restricted mode (Workspace Trust) so the folderOpen task can run — automatic
+  // tasks are gated behind trust, and the bare default image isn't trusted by default.
+  'security.workspace.trust.enabled': false,
+  'security.workspace.trust.startupPrompt': 'never',
+  'security.workspace.trust.banner': 'never',
 };
 
 /** Auto-opens an interactive terminal when the workspace folder opens in code-server. */
@@ -42,6 +47,9 @@ const CODE_SERVER_APPLY_SETTINGS =
 /** Launch code-server on every container start, idempotently, bound for host access. */
 const CODE_SERVER_LAUNCH =
   `bash -c "${CODE_SERVER_APPLY_SETTINGS} ` +
+  // Guarantee SHELL is set so the Terminal task's `exec ${env:SHELL} -l` resolves on the
+  // bare default image (which may not export it); honors the user's shell when present.
+  `export SHELL=\\"\${SHELL:-/bin/bash}\\"; ` +
   `pgrep -f 'code-server.*${CODE_SERVER_PORT}' >/dev/null 2>&1 || ` +
   `nohup code-server --bind-addr 0.0.0.0:${CODE_SERVER_PORT} --auth none ` +
   `--disable-workspace-trust \\"$PWD\\" >/tmp/code-server.log 2>&1 &"`;

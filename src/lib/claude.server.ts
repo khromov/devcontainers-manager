@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { CLAUDE_CODE_TOKEN } from './config.server.ts';
 
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
 
@@ -20,6 +21,12 @@ function isValid(json: string): boolean {
  * macOS keeps them in the login Keychain; Linux/others use ~/.claude/.credentials.json.
  */
 async function locateClaudeCredentials(): Promise<{ creds: string; source: string } | null> {
+  // An explicit token override wins over any host discovery.
+  if (CLAUDE_CODE_TOKEN) {
+    const creds = JSON.stringify({ claudeAiOauth: { accessToken: CLAUDE_CODE_TOKEN } });
+    return { creds, source: 'DCM_CLAUDE_CODE_TOKEN env var' };
+  }
+
   if (process.platform === 'darwin') {
     try {
       const proc = Bun.spawn(

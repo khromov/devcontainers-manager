@@ -150,11 +150,19 @@
   });
 
   // The focused tab shouldn't pulse: dismiss its signal server-side (for all
-  // viewers) as soon as it's active and carrying one.
+  // viewers) once the user is actually *looking* at it. Gated on document
+  // visibility so an IDE tab sitting in a background browser tab doesn't wipe the
+  // signal out from under the dashboard card. Re-checks when the tab regains focus.
   $effect(() => {
-    if (active && attention[active]) {
-      void fetch(`/api/instances/${active}/attention/clear`, { method: 'POST' });
-    }
+    if (!active || !attention[active]) return;
+    const dismiss = () => {
+      if (document.visibilityState === 'visible') {
+        void fetch(`/api/instances/${active}/attention/clear`, { method: 'POST' });
+      }
+    };
+    dismiss();
+    document.addEventListener('visibilitychange', dismiss);
+    return () => document.removeEventListener('visibilitychange', dismiss);
   });
 </script>
 

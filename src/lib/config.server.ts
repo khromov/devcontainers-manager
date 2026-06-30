@@ -42,6 +42,15 @@ export const BASIC_AUTH_USERNAME = process.env.BASIC_AUTH_USERNAME || 'admin';
 export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
 
 /**
+ * Optional token overrides for credential injection. When set, the manager injects
+ * this token into every container instead of discovering the host's credentials
+ * (macOS Keychain / ~/.claude / `gh auth token`). Useful on servers/CI or to pin a
+ * specific identity.
+ */
+export const CLAUDE_CODE_TOKEN = process.env.DCM_CLAUDE_CODE_TOKEN?.trim() || '';
+export const GITHUB_TOKEN = process.env.DCM_GITHUB_TOKEN?.trim() || '';
+
+/**
  * Directories skipped when copying a source folder into an instance workspace.
  * `.git` is intentionally kept so each instance retains its history/remote and
  * `git pull`/`push` work (authenticated by the injected gh credentials).

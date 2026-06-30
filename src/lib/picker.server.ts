@@ -2,6 +2,10 @@ import { readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { getOption, setOption } from './db.server';
+
+/** Options key under which the last browsed folder is persisted. */
+const LAST_VIEWED_FOLDER = 'last_viewed_folder';
 
 export interface DirEntry {
   name: string;
@@ -28,12 +32,20 @@ function hasDevcontainer(dir: string): boolean {
 }
 
 /**
- * List the subdirectories of `path` (defaults to the user's home directory) so the
- * web UI can browse to and pick a project folder. Only directories are returned —
- * all we need from the selection is the absolute path.
+ * List the subdirectories of `path` so the web UI can browse to and pick a project
+ * folder. Only directories are returned — all we need from the selection is the
+ * absolute path. When no `path` is given the picker resumes at the last browsed
+ * folder (persisted across sessions), falling back to the user's home directory.
+ * The viewed folder is continuously persisted so the next visit reopens there.
  */
 export async function browse(path?: string): Promise<BrowseResult> {
-  const target = path && path.trim() ? path : homedir();
+  let target: string;
+  if (path && path.trim()) {
+    target = path;
+  } else {
+    const saved = getOption(LAST_VIEWED_FOLDER);
+    target = saved && existsSync(saved) ? saved : homedir();
+  }
 
   const info = await stat(target);
   if (!info.isDirectory()) throw new Error(`Not a folder: ${target}`);
@@ -46,6 +58,8 @@ export async function browse(path?: string): Promise<BrowseResult> {
     entries.push({ name: dirent.name, path: full, hasDevcontainer: hasDevcontainer(full) });
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  setOption(LAST_VIEWED_FOLDER, target);
 
   const parent = dirname(target);
   return {

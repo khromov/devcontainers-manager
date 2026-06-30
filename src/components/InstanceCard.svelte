@@ -22,6 +22,11 @@
     oncommitrename: () => void;
     oncancelrename: () => void;
   } = $props();
+
+  // Debug: trace the live attention signal driving the card pulse.
+  $effect(() => {
+    console.log('[InstanceCard] attention', instance.name, instance.id, '=>', instance.attention);
+  });
 </script>
 
 <li class="card">
@@ -45,6 +50,19 @@
         title="Click to rename"
         onclick={onstartrename}
       >{instance.name}</button>
+    {/if}
+    {#if instance.attention}
+      <span
+        class="attn"
+        class:attn-done={instance.attention === 'done'}
+        class:attn-waiting={instance.attention === 'waiting'}
+        title={instance.attention === 'waiting'
+          ? 'Claude is waiting for input'
+          : 'Claude finished'}
+        aria-label={instance.attention === 'waiting'
+          ? 'Claude is waiting for input'
+          : 'Claude finished'}
+      ></span>
     {/if}
     <StatusBadge status={instance.status} />
   </div>
@@ -88,6 +106,49 @@
     display: flex;
     align-items: center;
     gap: 11px;
+  }
+  /* Attention pulse raised by the in-container Claude hook, mirroring the IDE tabs:
+     'done' pulses green, 'waiting' pulses amber. */
+  .attn {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--ink);
+    /* Solid base fill so the square is visible the instant it appears — the
+       animation only pulses brightness + glow on top of this, never fades in
+       from transparent. */
+    background: var(--attn-done);
+  }
+  .attn.attn-done {
+    background: var(--attn-done);
+    animation: card-attn-pulse 1.4s ease-in-out infinite;
+  }
+  .attn.attn-waiting {
+    background: var(--attn-waiting);
+    animation: card-attn-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes card-attn-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+      filter: brightness(0.85);
+    }
+    50% {
+      box-shadow: 0 0 7px 2px color-mix(in srgb, currentColor 60%, transparent);
+      filter: brightness(1.15);
+    }
+  }
+  .attn.attn-done {
+    color: var(--attn-done);
+  }
+  .attn.attn-waiting {
+    color: var(--attn-waiting);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .attn {
+      animation: none;
+      filter: none;
+    }
   }
   .name {
     flex: 1;

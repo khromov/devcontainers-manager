@@ -72,6 +72,11 @@ describe('writeOverrideConfig terminal task + settings', () => {
     expect(readSettings()['task.allowAutomaticTasks']).toBe('on');
   });
 
+  test('disables workspace trust in code-server settings', async () => {
+    await writeOverrideConfig(dir, 8001);
+    expect(readSettings()['security.workspace.trust.enabled']).toBe(false);
+  });
+
   test('preserves an existing unrelated task and appends Terminal', async () => {
     mkdirSync(join(dir, '.vscode'), { recursive: true });
     writeFileSync(

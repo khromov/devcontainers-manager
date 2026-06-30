@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { GITHUB_TOKEN } from './config.server.ts';
 
 const GH_HOST = 'github.com';
 
@@ -15,11 +16,13 @@ export interface GhCredentials {
 }
 
 /**
- * Read the host's GitHub token via the `gh` binary, which transparently spans
- * its storage backends (macOS Keychain, encrypted file, or GH_TOKEN). Returns
- * the trimmed token, or null when gh is absent or not logged in.
+ * Resolve the GitHub token to inject, plus a human-readable source for display.
+ * An explicit `DCM_GITHUB_TOKEN` override wins; otherwise read it via the `gh`
+ * binary, which transparently spans its storage backends (macOS Keychain,
+ * encrypted file, or GH_TOKEN). Returns null when no token is available.
  */
-async function readGhToken(): Promise<string | null> {
+async function readGhToken(): Promise<{ token: string; source: string } | null> {
+  if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
   try {
     const proc = Bun.spawn(['gh', 'auth', 'token', '--hostname', GH_HOST], {
       stdout: 'pipe',
@@ -27,7 +30,7 @@ async function readGhToken(): Promise<string | null> {
     });
     const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
     const token = out.trim();
-    return code === 0 && token ? token : null;
+    return code === 0 && token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;
   } catch {
     // gh not installed on host.
     return null;
@@ -57,18 +60,18 @@ async function readGhHostMeta(): Promise<{ user?: string; gitProtocol?: string }
  * plus where they came from (for display). `source` is null when unavailable.
  */
 export async function ghAuthStatus(): Promise<{ available: boolean; source: string | null }> {
-  const token = await readGhToken();
-  return token
-    ? { available: true, source: `GitHub CLI — ${GH_HOST}` }
+  const found = await readGhToken();
+  return found
+    ? { available: true, source: found.source }
     : { available: false, source: null };
 }
 
-/** Read the host's GitHub CLI credentials for injection, or null if absent. */
+/** Read the GitHub CLI credentials for injection, or null if absent. */
 export async function readGhCredentials(): Promise<GhCredentials | null> {
-  const token = await readGhToken();
-  if (!token) return null;
+  const found = await readGhToken();
+  if (!found) return null;
   const { user, gitProtocol } = await readGhHostMeta();
-  return { token, user, gitProtocol };
+  return { token: found.token, user, gitProtocol };
 }
 
 /**
