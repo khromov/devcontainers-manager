@@ -34,7 +34,7 @@
   const agoLabel = $derived.by(() => {
     if (!lastFetchedAt) return 'Waiting for first check…';
     const secs = Math.max(0, Math.round((now - lastFetchedAt) / 1000));
-    return `Updated ${secs}s ago · re-checked every 5s`;
+    return `Updated ${secs}s ago`;
   });
 </script>
 
