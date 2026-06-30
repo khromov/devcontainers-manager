@@ -4,6 +4,24 @@ A web UI for spinning up isolated devcontainer instances from any local folder f
 
 Pick a project folder → the app copies it, injects code-server into its `devcontainer.json`, runs `devcontainer up`, and publishes the editor on a unique host port. It also copies your host's Claude Code and GitHub CLI credentials into each container so `claude`, `gh`, and git-over-HTTPS work out of the box.
 
+## Claude Code in your devcontainer
+
+The app copies your Claude Code credentials and installs the attention hooks into every container, but it only copies them — it does **not** install the `claude` binary for projects that ship their own devcontainer.
+
+- **Folders without a `devcontainer.json`** — the app generates a default config and automatically adds the [official Claude Code feature](https://github.com/anthropics/devcontainer-features), so `claude` is ready to use.
+- **Folders that ship their own `.devcontainer/devcontainer.json`** — you are responsible for making sure `claude` is available in the image. The manager respects your config and won't modify your tooling. The simplest way is to add the feature:
+
+  ```jsonc
+  // .devcontainer/devcontainer.json
+  {
+    "features": {
+      "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    }
+  }
+  ```
+
+  (The feature installs Node.js if it isn't already present.) Alternatively, install it yourself in your Dockerfile, e.g. `npm install -g @anthropic-ai/claude-code`.
+
 ## Requirements
 
 - [Bun](https://bun.sh) >= 1.3.13 (Node.js is not supported)
