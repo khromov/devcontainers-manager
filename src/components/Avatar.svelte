@@ -11,7 +11,53 @@
     name,
     scale = 6,
     art,
-  }: { id?: string; name: string; scale?: number; art?: AvatarArt } = $props();
+    interactive = false,
+  }: {
+    id?: string;
+    name: string;
+    scale?: number;
+    art?: AvatarArt;
+    interactive?: boolean;
+  } = $props();
+
+  // "LCD pressure" gag (only when `interactive`): pressing the panel inverts it
+  // and blooms an oily iridescent splotch from the press point, then springs back
+  // over ~250ms leaving a fading ghost — like squishing a real LCD.
+  let pressed = $state(false);
+  let ghosting = $state(false);
+  let bx = $state('50%');
+  let by = $state('50%');
+  let ghostTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Position the bloom at the pointer, in panel-relative percentages.
+  function aim(e: PointerEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    bx = ((e.clientX - rect.left) / rect.width) * 100 + '%';
+    by = ((e.clientY - rect.top) / rect.height) * 100 + '%';
+  }
+
+  function onpointerdown(e: PointerEvent) {
+    if (!interactive) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    aim(e);
+    clearTimeout(ghostTimer);
+    ghosting = false;
+    pressed = true;
+  }
+
+  function onpointermove(e: PointerEvent) {
+    if (pressed) aim(e); // drag the squish point around while held
+  }
+
+  function release() {
+    if (!pressed) return;
+    pressed = false;
+    ghosting = true;
+    clearTimeout(ghostTimer);
+    ghostTimer = setTimeout(() => (ghosting = false), 250);
+  }
+
+  $effect(() => () => clearTimeout(ghostTimer));
 
   // Clamp to a whole number ≥ 1 — fractional scales would blur the grid.
   const s = $derived(Math.max(1, Math.round(scale)));
@@ -35,14 +81,26 @@
 
 <span
   class="avatar"
+  class:interactive
+  class:pressed
+  class:ghosting
   role="img"
   aria-label={name}
   title={name}
-  style="width:{10 * s}px;height:{10 * s}px;--gap:{gap}px"
+  style="width:{10 * s}px;height:{10 * s}px;--gap:{gap}px;--bx:{bx};--by:{by}"
+  {onpointerdown}
+  {onpointermove}
+  onpointerup={release}
+  onpointercancel={release}
+  onlostpointercapture={release}
 >
   {#each grid as cell, i (i)}
     <span class="px" class:on={cell === 1}></span>
   {/each}
+  {#if interactive}
+    <span class="invert" aria-hidden="true"></span>
+    <span class="bloom" aria-hidden="true"></span>
+  {/if}
 </span>
 
 <style>
@@ -68,5 +126,101 @@
   }
   .px.on {
     background-color: var(--ink);
+  }
+
+  /* --- "LCD pressure" press effect (opt-in via `interactive`) --- */
+  .avatar.interactive {
+    position: relative;
+    cursor: pointer;
+    touch-action: none; /* a touch-press shouldn't scroll the page */
+  }
+  /* Localized inversion: a white layer in `difference` blend mode inverts whatever
+     is behind it, and a radial alpha mask centered on the press point makes that
+     inversion strongest at the center and fade to nothing toward the edges — so
+     only a disc around your finger flips, like the pressure spot on a real LCD. */
+  .invert {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: #fff;
+    mix-blend-mode: difference;
+    -webkit-mask: radial-gradient(
+      circle at var(--bx) var(--by),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.92) 24%,
+      rgba(0, 0, 0, 0) 58%
+    );
+    mask: radial-gradient(
+      circle at var(--bx) var(--by),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.92) 24%,
+      rgba(0, 0, 0, 0) 58%
+    );
+  }
+  .avatar.pressed .invert {
+    opacity: 1;
+  }
+  .avatar.ghosting .invert {
+    opacity: 0;
+    transition: opacity 250ms ease-out;
+  }
+
+  /* The squished-crystal splotch: a dark blotch + an oily iridescent ring, both
+     centered on the press point (--bx/--by), blended over the inverted pixels. */
+  .bloom {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    mix-blend-mode: screen;
+    background:
+      conic-gradient(
+        from 0deg at var(--bx) var(--by),
+        #ff0080,
+        #ffae00,
+        #00ff6a,
+        #00b3ff,
+        #7a00ff,
+        #ff0080
+      ),
+      radial-gradient(
+        circle at var(--bx) var(--by),
+        rgba(13, 14, 10, 0.85) 0%,
+        rgba(13, 14, 10, 0.4) 18%,
+        transparent 45%
+      );
+    /* Mask the rainbow conic into a ring around the press point. */
+    -webkit-mask: radial-gradient(
+      circle at var(--bx) var(--by),
+      transparent 8%,
+      #000 26%,
+      #000 38%,
+      transparent 60%
+    );
+    mask: radial-gradient(
+      circle at var(--bx) var(--by),
+      transparent 8%,
+      #000 26%,
+      #000 38%,
+      transparent 60%
+    );
+  }
+  .avatar.pressed .bloom {
+    opacity: 1;
+  }
+  .avatar.ghosting .bloom {
+    opacity: 0;
+    transition: opacity 250ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .avatar.interactive {
+      transition: transform 250ms ease-out;
+    }
+    .avatar.pressed {
+      transform: scale(0.97);
+      transition: transform 60ms ease-out;
+    }
   }
 </style>

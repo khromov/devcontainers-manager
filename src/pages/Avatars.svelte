@@ -4,4 +4,4 @@
   import AvatarsGallery from '../components/AvatarsGallery.svelte';
 </script>
 
-<AvatarsGallery />
+<AvatarsGallery mochi:hydrate />
