@@ -27,13 +27,24 @@
   let ghosting = $state(false);
   let bx = $state('50%');
   let by = $state('50%');
+  // Driven by the press position so the iridescent sheen shifts as you drag
+  // across the panel: `spin` rotates which hues land where, `hue` shifts the
+  // whole palette. A CSS transition eases between values for a liquid trail.
+  let spin = $state(0);
+  let hue = $state(0);
   let ghostTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Position the bloom at the pointer, in panel-relative percentages.
+  // Position the bloom at the pointer (panel-relative percentages) and derive the
+  // palette from where on the panel you are — so every pixel reads a bit different.
   function aim(e: PointerEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    bx = ((e.clientX - rect.left) / rect.width) * 100 + '%';
-    by = ((e.clientY - rect.top) / rect.height) * 100 + '%';
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    bx = px * 100 + '%';
+    by = py * 100 + '%';
+    // Non-linear mix of x and y so dragging sweeps the palette in interesting ways.
+    hue = (px * 360 + py * 140) % 360;
+    spin = (py * 300 - px * 120 + 360) % 360;
   }
 
   function onpointerdown(e: PointerEvent) {
@@ -87,7 +98,7 @@
   role="img"
   aria-label={name}
   title={name}
-  style="width:{10 * s}px;height:{10 * s}px;--gap:{gap}px;--bx:{bx};--by:{by}"
+  style="width:{10 * s}px;height:{10 * s}px;--gap:{gap}px;--bx:{bx};--by:{by};--spin:{spin}deg;--hue:{hue}deg"
   {onpointerdown}
   {onpointermove}
   onpointerup={release}
@@ -129,6 +140,18 @@
   }
 
   /* --- "LCD pressure" press effect (opt-in via `interactive`) --- */
+  /* Register the palette vars as <angle> so they can be smoothly transitioned —
+     plain custom properties don't interpolate. */
+  @property --hue {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
+  @property --spin {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
   .avatar.interactive {
     position: relative;
     cursor: pointer;
@@ -174,9 +197,14 @@
     pointer-events: none;
     opacity: 0;
     mix-blend-mode: screen;
+    /* Palette derived from press position; ease between states for a liquid trail. */
+    filter: hue-rotate(var(--hue, 0deg));
+    transition:
+      --hue 350ms ease-out,
+      --spin 350ms ease-out;
     background:
       conic-gradient(
-        from 0deg at var(--bx) var(--by),
+        from var(--spin, 0deg) at var(--bx) var(--by),
         #ff0080,
         #ffae00,
         #00ff6a,
@@ -207,7 +235,7 @@
     );
   }
   .avatar.pressed .bloom {
-    opacity: 1;
+    opacity: 0.45;
   }
   .avatar.ghosting .bloom {
     opacity: 0;
