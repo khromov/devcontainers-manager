@@ -21,6 +21,14 @@ describe('injection registry', () => {
     expect(git).toBeDefined();
     expect(git!.check).toBeUndefined();
   });
+
+  test('claude-skip-permissions is registered with a health check', () => {
+    const alias = injections.find((i) => i.id === 'claude-skip-permissions');
+    expect(alias).toBeDefined();
+    expect(typeof alias!.check).toBe('function');
+    // No host dependency, so no auth chip.
+    expect(alias!.auth).toBeUndefined();
+  });
 });
 
 describe('attentionHookSettings', () => {

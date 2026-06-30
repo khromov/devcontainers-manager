@@ -3,6 +3,7 @@ import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts'
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
 import { githubCredentials } from '../container-injections/github-credentials.ts';
 import { attentionHooks } from '../container-injections/attention-hooks.ts';
+import { claudeSkipPermissions } from '../container-injections/claude-skip-permissions.ts';
 
 /** A running container an injection acts on, plus the instance row behind it. */
 export interface ContainerTarget {
@@ -57,4 +58,5 @@ export const injections: Injection[] = [
   claudeCodeCredentials,
   githubCredentials,
   attentionHooks,
+  claudeSkipPermissions,
 ];
