@@ -12,15 +12,16 @@
     lastFetchedAt?: number | null;
   } = $props();
 
-  // One row per check: a pass/fail flag plus the word shown on the right.
+  // One row per check: a pass/fail flag plus a uniform value word — "OK" when
+  // passing, "—" otherwise (the tick/cross icon already conveys pass vs fail).
   const checks = $derived.by((): { label: string; ok: boolean; value: string }[] => {
     if (!health) return [];
-    const v = (ok: boolean, good: string, bad: string) => ({ ok, value: ok ? good : bad });
+    const v = (ok: boolean) => ({ ok, value: ok ? 'OK' : '—' });
     return [
-      { label: 'Container running', ...v(health.containerRunning, 'Up', 'Down') },
-      { label: 'Code-server reachable', ...v(health.codeServerAccessible, 'Accessible', 'Unreachable') },
-      { label: 'Claude hooks', ...v(health.hooksPresent, 'Present', 'Absent') },
-      { label: 'Claude credentials', ...v(health.credsPresent, 'Present', 'Absent') },
+      { label: 'Container running', ...v(health.containerRunning) },
+      { label: 'Code-server reachable', ...v(health.codeServerAccessible) },
+      // One row per injection that reports health (e.g. Claude Code, GitHub CLI, Claude hooks).
+      ...health.injections.map((i) => ({ label: i.label, ...v(i.ok) })),
     ];
   });
 

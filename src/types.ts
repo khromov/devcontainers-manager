@@ -41,10 +41,12 @@ export interface InstanceHealth {
   containerRunning: boolean;
   /** code-server answered an HTTP probe on its host port. */
   codeServerAccessible: boolean;
-  /** The attention-hook settings.json is present in the container's Claude config. */
-  hooksPresent: boolean;
-  /** Claude credentials are present in the container's Claude config. */
-  credsPresent: boolean;
+  /**
+   * One presence row per injection that defines a `check()` (Claude Code creds,
+   * GitHub CLI, attention hooks). Driven by the injection registry, so it grows
+   * automatically as injections are added. Empty while the container is down.
+   */
+  injections: { id: string; label: string; ok: boolean }[];
   /** Container ports currently published to the host per Docker (the `docker ps` view). */
   openPorts: number[];
   /** Epoch ms when these checks last ran. */

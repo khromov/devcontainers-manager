@@ -22,6 +22,15 @@ The app copies your Claude Code credentials and installs the attention hooks int
 
   (The feature installs Node.js if it isn't already present.) Alternatively, install it yourself in your Dockerfile, e.g. `npm install -g @anthropic-ai/claude-code`.
 
+## Container injections
+
+After `devcontainer up`, the app installs a few things into each container. Each is a self-contained module under `src/container-injections/` (add or remove one by editing that directory's registry):
+
+- **git safe.directory** — marks the copied workspace as a safe git directory for the container user, so git doesn't reject the host-owned `.git` as "dubious ownership".
+- **Claude Code** — copies your host's Claude Code OAuth credentials so the in-container `claude` is signed in without a fresh login.
+- **GitHub CLI** — copies your host's GitHub token so `gh` and git-over-HTTPS push/pull are authenticated.
+- **Claude attention hooks** — installs Claude hooks that ping the manager when Claude finishes a task or needs input, pulsing the instance's IDE tab.
+
 ## Requirements
 
 - [Bun](https://bun.sh) >= 1.3.13 (Node.js is not supported)

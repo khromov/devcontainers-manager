@@ -29,7 +29,6 @@ import {
 import {
   dockerAvailable,
   isRunning,
-  markGitSafeDirectory,
   removeContainer,
   startContainer,
   stopContainer,
@@ -41,14 +40,8 @@ import {
   readDeclaredContainerPorts,
   writeOverrideConfig,
 } from './devcontainer.server.ts';
-import { injectClaudeCredentials, readClaudeCredentials } from './claude.server.ts';
-import {
-  attentionHookSettings,
-  clearAttention,
-  getAttention,
-  injectClaudeHooks,
-} from './bridge.server.ts';
-import { injectGhCredentials, readGhCredentials } from './gh.server.ts';
+import { clearAttention, getAttention } from './bridge.server.ts';
+import { injections } from './injections.server.ts';
 import { readGitBranch } from './git.server.ts';
 import {
   currentHealthSnapshots,
@@ -294,54 +287,21 @@ async function provision(row: InstanceRow): Promise<void> {
       error: null,
     });
 
-    // The copied .git is owned by the host UID, so let the container user use it.
-    const safe = await markGitSafeDirectory(result.containerId, result.remoteUser);
-    if (!safe.ok) appendLog(row.id, `⚠ git safe.directory setup failed: ${safe.error}\n`);
-
-    // Containers are throwaway, so copy the host's Claude Code auth into each one.
-    const creds = await readClaudeCredentials();
-    if (creds) {
-      appendLog(row.id, 'Injecting Claude Code credentials…\n');
-      const injected = await injectClaudeCredentials(result.containerId, result.remoteUser, creds);
-      appendLog(
-        row.id,
-        injected.ok
-          ? '✓ Claude Code authorized in container\n'
-          : `⚠ Claude auth injection failed: ${injected.error}\n`,
-      );
-    } else {
-      appendLog(row.id, '⚠ No Claude Code credentials found on host; skipped auth injection\n');
+    // Run every injection (git safe.directory, credentials, attention hooks, …)
+    // in registry order. Each logs its own progress; a thrown error is non-fatal
+    // so one failed injection never aborts the rest of provisioning.
+    const target = {
+      containerId: result.containerId,
+      remoteUser: result.remoteUser,
+      instance: row,
+    };
+    for (const injection of injections) {
+      try {
+        await injection.apply(target, (msg) => appendLog(row.id, msg));
+      } catch (err) {
+        appendLog(row.id, `⚠ ${injection.label} injection failed: ${(err as Error).message}\n`);
+      }
     }
-
-    // Likewise copy the host's GitHub CLI auth so `gh` and git-over-HTTPS work.
-    const gh = await readGhCredentials();
-    if (gh) {
-      appendLog(row.id, 'Injecting GitHub CLI credentials…\n');
-      const injected = await injectGhCredentials(result.containerId, result.remoteUser, gh);
-      appendLog(
-        row.id,
-        injected.ok
-          ? '✓ GitHub CLI authorized in container\n'
-          : `⚠ gh auth injection failed: ${injected.error}\n`,
-      );
-    } else {
-      appendLog(row.id, '⚠ No GitHub CLI credentials found on host; skipped gh injection\n');
-    }
-
-    // Inject the attention hook so the in-container Claude pings the manager when
-    // it finishes a task or needs input, pulsing this instance's IDE tab.
-    appendLog(row.id, 'Injecting Claude attention hooks…\n');
-    const hooks = await injectClaudeHooks(
-      result.containerId,
-      result.remoteUser,
-      attentionHookSettings(row.id, row.bridge_token),
-    );
-    appendLog(
-      row.id,
-      hooks.ok
-        ? '✓ Claude attention hooks installed\n'
-        : `⚠ Claude hook injection failed: ${hooks.error}\n`,
-    );
 
     appendLog(row.id, `\n✓ Instance running — open it via the proxy at /p/${row.id}/\n`);
   } catch (err) {

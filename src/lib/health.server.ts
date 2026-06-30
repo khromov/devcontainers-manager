@@ -1,6 +1,7 @@
 import { type InstanceRow } from './db.server.ts';
 import { isRunning, publishedContainerPorts } from './docker.server.ts';
 import { broadcastHealth } from './instances.server.ts';
+import { injections } from './injections.server.ts';
 import type { InstanceHealth } from '../types.ts';
 
 /**
@@ -32,61 +33,38 @@ async function codeServerAccessible(port: number): Promise<boolean> {
   }
 }
 
-/**
- * Verify, live, that our Claude files are present inside the container. One
- * `docker exec` checks both: the attention hooks (settings.json mentioning this
- * instance id) and the injected credentials. Runs as the recorded remote user so
- * it resolves the same home the injection wrote to; when unknown, falls back to
- * the container's default exec user (typically that same remote user).
- */
-async function claudeFilesPresent(
-  containerId: string,
-  remoteUser: string | null,
-  id: string,
-): Promise<{ hooks: boolean; creds: boolean }> {
-  const script =
-    'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; hooks=0; creds=0; ' +
-    `[ -s "$d/settings.json" ] && grep -q '${id}' "$d/settings.json" && hooks=1; ` +
-    '[ -s "$d/.credentials.json" ] && creds=1; echo "$hooks $creds"';
-  const cmd = ['docker', 'exec'];
-  if (remoteUser?.trim()) cmd.push('-u', remoteUser.trim());
-  cmd.push(containerId, 'bash', '-lc', script);
-  try {
-    const proc = Bun.spawn(cmd, {
-      stdout: 'pipe',
-      stderr: 'ignore',
-    });
-    const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    if (code !== 0) return { hooks: false, creds: false };
-    const [h, c] = out.trim().split(/\s+/);
-    return { hooks: h === '1', creds: c === '1' };
-  } catch {
-    return { hooks: false, creds: false };
-  }
-}
-
 /** Run every health check for one instance and return a fresh snapshot. */
 async function check(row: InstanceRow): Promise<InstanceHealth> {
   const down: InstanceHealth = {
     containerRunning: false,
     codeServerAccessible: false,
-    hooksPresent: false,
-    credsPresent: false,
+    injections: [],
     openPorts: [],
     checkedAt: Date.now(),
   };
   if (!row.container_id || !(await isRunning(row.container_id))) return down;
 
-  const [accessible, files, openPorts] = await Promise.all([
+  // Drive the per-injection presence rows from the same registry that installs
+  // them, so injecting and health-probing never drift. Runs as the recorded
+  // remote user so it resolves the home the injection wrote to.
+  const target = { containerId: row.container_id, remoteUser: row.remote_user, instance: row };
+  const [accessible, openPorts, injectionResults] = await Promise.all([
     codeServerAccessible(row.host_port),
-    claudeFilesPresent(row.container_id, row.remote_user, row.id),
     publishedContainerPorts(row.container_id),
+    Promise.all(
+      injections
+        .filter((i) => i.check)
+        .map(async (i) => ({
+          id: i.id,
+          label: i.label,
+          ok: await i.check!(target).catch(() => false),
+        })),
+    ),
   ]);
   return {
     containerRunning: true,
     codeServerAccessible: accessible,
-    hooksPresent: files.hooks,
-    credsPresent: files.creds,
+    injections: injectionResults,
     openPorts,
     checkedAt: Date.now(),
   };

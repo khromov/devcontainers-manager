@@ -105,13 +105,26 @@
   let healthChecks = $state({
     containerRunning: true,
     codeServerAccessible: true,
-    hooksPresent: true,
-    credsPresent: false,
+    claudeCode: true,
+    github: false,
+    attentionHooks: true,
   });
   // Stamp a fetch time so the "updated Ns ago" readout ticks; "refresh" resets it.
   let healthFetchedAt = $state(Date.now());
   const demoHealth = $derived<InstanceHealth | null>(
-    healthLoading ? null : { ...healthChecks, openPorts: [], checkedAt: healthFetchedAt },
+    healthLoading
+      ? null
+      : {
+          containerRunning: healthChecks.containerRunning,
+          codeServerAccessible: healthChecks.codeServerAccessible,
+          injections: [
+            { id: 'claude-code-credentials', label: 'Claude Code', ok: healthChecks.claudeCode },
+            { id: 'github-credentials', label: 'GitHub CLI', ok: healthChecks.github },
+            { id: 'attention-hooks', label: 'Claude hooks', ok: healthChecks.attentionHooks },
+          ],
+          openPorts: [],
+          checkedAt: healthFetchedAt,
+        },
   );
 
   // --- PortsBox controls ---
@@ -300,12 +313,16 @@
           <span>code-server reachable</span>
         </label>
         <label class="inline">
-          <input type="checkbox" bind:checked={healthChecks.hooksPresent} />
-          <span>hooks present</span>
+          <input type="checkbox" bind:checked={healthChecks.claudeCode} />
+          <span>Claude Code present</span>
         </label>
         <label class="inline">
-          <input type="checkbox" bind:checked={healthChecks.credsPresent} />
-          <span>credentials present</span>
+          <input type="checkbox" bind:checked={healthChecks.github} />
+          <span>GitHub CLI present</span>
+        </label>
+        <label class="inline">
+          <input type="checkbox" bind:checked={healthChecks.attentionHooks} />
+          <span>attention hooks present</span>
         </label>
       {/snippet}
     </ComponentDemo>

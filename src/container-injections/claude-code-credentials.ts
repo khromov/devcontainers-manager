@@ -2,7 +2,9 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { CLAUDE_CODE_TOKEN } from './config.server.ts';
+import { CLAUDE_CODE_TOKEN } from '../lib/config.server.ts';
+import { execInContainer } from '../lib/exec.server.ts';
+import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
 
@@ -51,20 +53,6 @@ async function locateClaudeCredentials(): Promise<{ creds: string; source: strin
   return null;
 }
 
-/** Read the host's Claude Code OAuth credentials as a JSON string, or null if absent. */
-export async function readClaudeCredentials(): Promise<string | null> {
-  return (await locateClaudeCredentials())?.creds ?? null;
-}
-
-/**
- * Whether host Claude Code credentials are available to inject into containers,
- * plus where they were found (for display). `source` is null when unavailable.
- */
-export async function claudeAuthStatus(): Promise<{ available: boolean; source: string | null }> {
-  const found = await locateClaudeCredentials();
-  return { available: found !== null, source: found?.source ?? null };
-}
-
 /**
  * Authorize Claude Code inside a running container as its remote user. Writes the
  * credentials (via stdin, never argv) plus a `hasCompletedOnboarding` flag — the
@@ -74,28 +62,58 @@ export async function claudeAuthStatus(): Promise<{ available: boolean; source: 
  * $CLAUDE_CONFIG_DIR/.credentials.json (default ~/.claude/.credentials.json) and
  * config at $CLAUDE_CONFIG_DIR/.claude.json (default ~/.claude.json).
  */
-export async function injectClaudeCredentials(
-  containerId: string,
-  remoteUser: string | undefined,
+async function injectClaudeCredentials(
+  target: ContainerTarget,
   creds: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const user = remoteUser?.trim() || 'root';
   const script =
     'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
     'cat > "$d/.credentials.json"; chmod 600 "$d/.credentials.json"; ' +
     'cfg="${CLAUDE_CONFIG_DIR:+$CLAUDE_CONFIG_DIR/.claude.json}"; cfg="${cfg:-$h/.claude.json}"; ' +
     'printf \'%s\' \'{"hasCompletedOnboarding":true}\' > "$cfg"; chmod 644 "$cfg"';
-  try {
-    const proc = Bun.spawn(['docker', 'exec', '-i', '-u', user, containerId, 'bash', '-lc', script], {
-      stdin: 'pipe',
-      stdout: 'ignore',
-      stderr: 'pipe',
-    });
-    proc.stdin.write(creds);
-    await proc.stdin.end();
-    const [err, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
-    return code === 0 ? { ok: true } : { ok: false, error: err.trim() || `exit ${code}` };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
-  }
+  const res = await execInContainer(target, { script, stdin: creds });
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
+
+/**
+ * Inject the host's Claude Code OAuth credentials so the in-container `claude` is
+ * authorized without a fresh login. Containers are throwaway, so we copy auth into
+ * each one. Skipped (with a log line) when the host has no credentials.
+ */
+export const claudeCodeCredentials: Injection = {
+  id: 'claude-code-credentials',
+  label: 'Claude Code',
+
+  auth: {
+    hint: 'run `claude` and sign in',
+    async status() {
+      const found = await locateClaudeCredentials();
+      return { available: found !== null, source: found?.source ?? null };
+    },
+  },
+
+  async apply(target, log) {
+    const found = await locateClaudeCredentials();
+    if (!found) {
+      log('⚠ No Claude Code credentials found on host; skipped auth injection\n');
+      return;
+    }
+    log('Injecting Claude Code credentials…\n');
+    const injected = await injectClaudeCredentials(target, found.creds);
+    log(
+      injected.ok
+        ? '✓ Claude Code authorized in container\n'
+        : `⚠ Claude auth injection failed: ${injected.error}\n`,
+    );
+  },
+
+  async check(target) {
+    const res = await execInContainer(target, {
+      capture: true,
+      script:
+        'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; ' +
+        '[ -s "$d/.credentials.json" ] && echo 1 || echo 0',
+    });
+    return res.ok && res.stdout === '1';
+  },
+};

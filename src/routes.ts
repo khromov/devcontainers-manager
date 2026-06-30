@@ -1,8 +1,7 @@
 import { Mochi, apiError, error, json, type MochiRouteValue } from 'mochi-framework';
 import { dockerArch, dockerAvailable } from './lib/docker.server.ts';
 import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
-import { claudeAuthStatus } from './lib/claude.server.ts';
-import { ghAuthStatus } from './lib/gh.server.ts';
+import { injections } from './lib/injections.server.ts';
 import { browse } from './lib/picker.server.ts';
 import {
   addForwardedPort,
@@ -32,33 +31,27 @@ import { clearAttention, setAttention } from './lib/bridge.server.ts';
 import { proxyRoutes } from './lib/proxy.server.ts';
 
 async function preflight() {
-  const [docker, cli, claude, gh] = await Promise.all([
+  const [docker, cli, auth] = await Promise.all([
     dockerAvailable(),
     devcontainerCliAvailable(),
-    claudeAuthStatus(),
-    ghAuthStatus(),
+    // Provider-agnostic: every injection that declares host-side auth surfaces a
+    // chip automatically, so adding an injection extends the setup UI for free.
+    Promise.all(
+      injections
+        .filter((i) => i.auth)
+        .map(async (i) => {
+          const status = await i.auth!.status();
+          return {
+            id: i.id,
+            label: i.label,
+            available: status.available,
+            source: status.source,
+            hint: i.auth!.hint,
+          };
+        }),
+    ),
   ]);
-  return {
-    docker,
-    cli,
-    // Provider-agnostic so the UI can list more authorizations later.
-    auth: [
-      {
-        id: 'claude-code',
-        label: 'Claude Code',
-        available: claude.available,
-        source: claude.source,
-        hint: 'run `claude` and sign in',
-      },
-      {
-        id: 'github-cli',
-        label: 'GitHub CLI',
-        available: gh.available,
-        source: gh.source,
-        hint: 'run `gh auth login`',
-      },
-    ],
-  };
+  return { docker, cli, auth };
 }
 
 export const routes: Record<string, MochiRouteValue> = {

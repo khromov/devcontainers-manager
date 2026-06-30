@@ -2,12 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { GITHUB_TOKEN } from './config.server.ts';
+import { GITHUB_TOKEN } from '../lib/config.server.ts';
+import { execInContainer } from '../lib/exec.server.ts';
+import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const GH_HOST = 'github.com';
 
 /** The host's GitHub CLI auth, ready to stage inside a container. */
-export interface GhCredentials {
+interface GhCredentials {
   token: string;
   /** GitHub login, when cheaply readable from the host's hosts.yml. */
   user?: string;
@@ -55,19 +57,8 @@ async function readGhHostMeta(): Promise<{ user?: string; gitProtocol?: string }
   }
 }
 
-/**
- * Whether host GitHub CLI credentials are available to inject into containers,
- * plus where they came from (for display). `source` is null when unavailable.
- */
-export async function ghAuthStatus(): Promise<{ available: boolean; source: string | null }> {
-  const found = await readGhToken();
-  return found
-    ? { available: true, source: found.source }
-    : { available: false, source: null };
-}
-
 /** Read the GitHub CLI credentials for injection, or null if absent. */
-export async function readGhCredentials(): Promise<GhCredentials | null> {
+async function readGhCredentials(): Promise<GhCredentials | null> {
   const found = await readGhToken();
   if (!found) return null;
   const { user, gitProtocol } = await readGhHostMeta();
@@ -81,12 +72,10 @@ export async function readGhCredentials(): Promise<GhCredentials | null> {
  * HTTPS is authenticated too. If gh isn't installed yet, the staged hosts.yml
  * still authorizes gh once it is.
  */
-export async function injectGhCredentials(
-  containerId: string,
-  remoteUser: string | undefined,
+async function injectGhCredentials(
+  target: ContainerTarget,
   creds: GhCredentials,
 ): Promise<{ ok: boolean; error?: string }> {
-  const user = remoteUser?.trim() || 'root';
   const protocol = creds.gitProtocol || 'https';
   // The hosts.yml header (everything but the token) is non-secret, so build it in
   // JS and pass it via printf; only the token is piped in over stdin.
@@ -98,16 +87,52 @@ export async function injectGhCredentials(
     `{ printf '%s' "$1"; printf '    oauth_token: %s\\n' "$tok"; } > "$d/hosts.yml"; ` +
     'chmod 600 "$d/hosts.yml"; ' +
     `command -v gh >/dev/null 2>&1 && gh auth setup-git --hostname ${GH_HOST} 2>/dev/null || true`;
-  try {
-    const proc = Bun.spawn(
-      ['docker', 'exec', '-i', '-u', user, containerId, 'bash', '-lc', script, 'gh-inject', header],
-      { stdin: 'pipe', stdout: 'ignore', stderr: 'pipe' },
-    );
-    proc.stdin.write(creds.token);
-    await proc.stdin.end();
-    const [err, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
-    return code === 0 ? { ok: true } : { ok: false, error: err.trim() || `exit ${code}` };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
-  }
+  const res = await execInContainer(target, {
+    script,
+    stdin: creds.token,
+    args: ['gh-inject', header],
+  });
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
+
+/**
+ * Inject the host's GitHub CLI auth so `gh` and git-over-HTTPS work inside the
+ * container. Skipped (with a log line) when the host has no credentials.
+ */
+export const githubCredentials: Injection = {
+  id: 'github-credentials',
+  label: 'GitHub CLI',
+
+  auth: {
+    hint: 'run `gh auth login`',
+    async status() {
+      const found = await readGhToken();
+      return found
+        ? { available: true, source: found.source }
+        : { available: false, source: null };
+    },
+  },
+
+  async apply(target, log) {
+    const creds = await readGhCredentials();
+    if (!creds) {
+      log('⚠ No GitHub CLI credentials found on host; skipped gh injection\n');
+      return;
+    }
+    log('Injecting GitHub CLI credentials…\n');
+    const injected = await injectGhCredentials(target, creds);
+    log(
+      injected.ok
+        ? '✓ GitHub CLI authorized in container\n'
+        : `⚠ gh auth injection failed: ${injected.error}\n`,
+    );
+  },
+
+  async check(target) {
+    const res = await execInContainer(target, {
+      capture: true,
+      script: '[ -s ~/.config/gh/hosts.yml ] && echo 1 || echo 0',
+    });
+    return res.ok && res.stdout === '1';
+  },
+};

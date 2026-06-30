@@ -72,25 +72,6 @@ export async function stopContainer(containerId: string): Promise<boolean> {
   return (await run(['docker', 'stop', containerId])).ok;
 }
 
-/**
- * Mark a path as a safe git directory for the container user. The workspace is
- * copied from the host, so its `.git` is owned by a different UID than the
- * container user — without this, git aborts every command with "dubious
- * ownership". Defaults to `*` since instances are throwaway and single-tenant.
- */
-export async function markGitSafeDirectory(
-  containerId: string,
-  remoteUser: string | undefined,
-  dir = '*',
-): Promise<{ ok: boolean; error?: string }> {
-  const user = remoteUser?.trim() || 'root';
-  const res = await run([
-    'docker', 'exec', '-u', user, containerId,
-    'git', 'config', '--global', '--add', 'safe.directory', dir,
-  ]);
-  return res.ok ? { ok: true } : { ok: false, error: res.stderr || `exit code` };
-}
-
 /** Force-remove a container; treats an already-absent container as success. */
 export async function removeContainer(containerId: string): Promise<boolean> {
   const res = await run(['docker', 'rm', '-f', containerId]);
