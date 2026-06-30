@@ -22,7 +22,7 @@
     "@lucide/svelte": "^1.21.0",
     "@zihaolam/bun-sqlite-migrations": "^1.0.3",
     "mochi-framework": "file:./vendor/mochi-framework",
-    "svelte": "^5.56.3",
+    "svelte": "^5.56.4",
     "svelte-french-toast": "^1.2.0"
   },
   "devDependencies": {
