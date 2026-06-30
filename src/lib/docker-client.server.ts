@@ -24,6 +24,17 @@ export function getDocker(): Promise<Docker> {
   return (g.__dcmDocker ??= resolveDocker());
 }
 
+/**
+ * Drop the cached client so the next `getDocker()` re-resolves the active context
+ * and socket. Call this when a connection-level operation fails: the daemon may
+ * have started, stopped, or switched context (e.g. `colima start` flips the active
+ * context to a different socket) since we last resolved — without this, the pinned
+ * client keeps targeting a now-dead socket for the whole process lifetime.
+ */
+export function resetDocker(): void {
+  g.__dcmDocker = undefined;
+}
+
 async function resolveDocker(): Promise<Docker> {
   const host = DOCKER_HOST || (await dockerContextHost()) || '';
   return new Docker(host ? parseDockerHost(host) : { socketPath: '/var/run/docker.sock' });
