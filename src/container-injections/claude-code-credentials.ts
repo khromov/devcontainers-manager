@@ -55,7 +55,7 @@ async function locateClaudeCredentials(): Promise<{ creds: string; source: strin
 
 /**
  * Authorize Claude Code inside a running container as its remote user. Writes the
- * credentials (via stdin, never argv) plus a `hasCompletedOnboarding` flag — the
+ * credentials (via a scrubbed shell variable, never argv) plus a `hasCompletedOnboarding` flag — the
  * latter is what stops `claude` re-running its first-run setup/login wizard.
  *
  * Both paths honor the container's CLAUDE_CONFIG_DIR: credentials at
@@ -68,7 +68,7 @@ async function injectClaudeCredentials(
 ): Promise<{ ok: boolean; error?: string }> {
   const script =
     'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
-    'cat > "$d/.credentials.json"; chmod 600 "$d/.credentials.json"; ' +
+    'printf %s "$DCM_STDIN" > "$d/.credentials.json"; chmod 600 "$d/.credentials.json"; ' +
     'cfg="${CLAUDE_CONFIG_DIR:+$CLAUDE_CONFIG_DIR/.claude.json}"; cfg="${cfg:-$h/.claude.json}"; ' +
     'printf \'%s\' \'{"hasCompletedOnboarding":true}\' > "$cfg"; chmod 644 "$cfg"';
   const res = await execInContainer(target, { script, stdin: creds });

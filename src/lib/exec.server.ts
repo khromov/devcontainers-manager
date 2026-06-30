@@ -21,22 +21,25 @@ function collector(): { stream: Writable; text: () => string } {
   };
 }
 
-/** Env var used to smuggle a stdin secret into the container (see `wrapWithStdin`). */
+/** Env var the exec carries the stdin secret in (see `wrapWithStdin`). */
 const STDIN_ENV = '__DCM_EXEC_STDIN';
+/** Non-exported shell var the wrapped script reads the secret from. */
+const STDIN_VAR = 'DCM_STDIN';
 
 /**
- * Feed `stdin` to the script over a pipe rather than the exec's stdin stream.
+ * Expose `stdin` to the script as a scrubbed shell variable rather than the exec's
+ * stdin stream.
  *
- * Real stdin streaming to `docker exec` is unusable on Bun: dockerode's hijack path
- * needs an HTTP `upgrade` event Bun never emits, and the non-hijack path can't
- * half-close the chunked request body, so the script's `$(cat)` blocks forever on EOF.
- * Instead we pass the secret in the exec's `Env` (not argv — it never shows up in `ps`)
- * and `printf` it into the script's stdin, then `unset` it so the script body and its
- * children don't inherit it. The script still reads its secret with `$(cat)`, exactly
- * as before, so callers are unaffected.
+ * Real stdin streaming to a container exec is unusable on Bun: dockerode's hijack path
+ * needs an HTTP `upgrade` event Bun never emits, and the non-hijack `openStdin` path
+ * needs full-duplex client HTTP (writing the request body while reading the response),
+ * which Bun's client also lacks. So the secret travels in the exec's `Env` (not argv —
+ * it never shows up in `ps`); we copy it into a plain, non-exported shell variable
+ * (`$DCM_STDIN`) and `unset` the exported carrier, so the script's child processes never
+ * inherit the secret either. Scripts read `"$DCM_STDIN"` instead of stdin.
  */
 function wrapWithStdin(script: string): string {
-  return `printf %s "$${STDIN_ENV}" | { unset ${STDIN_ENV}; ${script}\n}`;
+  return `${STDIN_VAR}="$${STDIN_ENV}"; unset ${STDIN_ENV}\n${script}`;
 }
 
 /**
@@ -45,8 +48,8 @@ function wrapWithStdin(script: string): string {
  * container injection's `apply()`/`check()` goes through it. Runs over the Docker
  * Engine API (dockerode), no `docker exec` shell-out.
  *
- * Secrets are passed via `stdin` and read with `$(cat)` in the script, never on
- * argv. Extra `args` are appended after the script and appear as `$0`, `$1`, …
+ * Secrets are passed via `stdin` and read from the scrubbed `$DCM_STDIN` shell var in
+ * the script, never on argv. Extra `args` are appended after the script and appear as `$0`, `$1`, …
  * inside it (used to pass non-secret context). Set `capture` to read stdout back;
  * stderr is always captured for error reporting.
  */

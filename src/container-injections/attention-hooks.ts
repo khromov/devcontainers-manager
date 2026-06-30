@@ -41,8 +41,8 @@ export function attentionHookSettings(id: string, token: string): string {
 }
 
 /**
- * Merge the attention hooks into a running container's Claude config dir. Pipes the
- * JSON over stdin (never argv) and deep-merges it into any existing
+ * Merge the attention hooks into a running container's Claude config dir. Passes the
+ * JSON via a scrubbed shell variable (never argv) and deep-merges it into any existing
  * `$CLAUDE_CONFIG_DIR/settings.json` (default ~/.claude/settings.json) with `jq`, so
  * a config the image already ships (e.g. a `statusLine`) is preserved — our hooks win
  * only on key conflicts. Falls back to writing our JSON outright when there's no
@@ -54,7 +54,7 @@ async function injectClaudeHooks(
 ): Promise<{ ok: boolean; error?: string }> {
   const script =
     'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
-    'f="$d/settings.json"; new=$(cat); ' +
+    'f="$d/settings.json"; new="$DCM_STDIN"; ' +
     'if command -v jq >/dev/null 2>&1 && [ -s "$f" ] && ' +
     'merged=$(printf \'%s\' "$new" | jq -s \'.[0] * .[1]\' "$f" - 2>/dev/null); then ' +
     'printf \'%s\' "$merged" > "$f"; else printf \'%s\' "$new" > "$f"; fi; ' +

@@ -67,7 +67,7 @@ async function readGhCredentials(): Promise<GhCredentials | null> {
 
 /**
  * Authorize the GitHub CLI inside a running container as its remote user. Writes
- * `~/.config/gh/hosts.yml` (token via stdin, never argv) so `gh` is signed in,
+ * `~/.config/gh/hosts.yml` (token via a scrubbed shell variable, never argv) so `gh` is signed in,
  * then runs `gh auth setup-git` when the binary exists so `git push`/`pull` over
  * HTTPS is authenticated too. If gh isn't installed yet, the staged hosts.yml
  * still authorizes gh once it is.
@@ -78,12 +78,12 @@ async function injectGhCredentials(
 ): Promise<{ ok: boolean; error?: string }> {
   const protocol = creds.gitProtocol || 'https';
   // The hosts.yml header (everything but the token) is non-secret, so build it in
-  // JS and pass it via printf; only the token is piped in over stdin.
+  // JS and pass it via printf; only the token rides in over the scrubbed $DCM_STDIN var.
   const header =
     `${GH_HOST}:\n    git_protocol: ${protocol}\n` +
     (creds.user ? `    user: ${creds.user}\n` : '');
   const script =
-    'set -e; d=~/.config/gh; mkdir -p "$d"; tok=$(cat); ' +
+    'set -e; d=~/.config/gh; mkdir -p "$d"; tok="$DCM_STDIN"; ' +
     `{ printf '%s' "$1"; printf '    oauth_token: %s\\n' "$tok"; } > "$d/hosts.yml"; ` +
     'chmod 600 "$d/hosts.yml"; ' +
     `command -v gh >/dev/null 2>&1 && gh auth setup-git --hostname ${GH_HOST} 2>/dev/null || true`;
