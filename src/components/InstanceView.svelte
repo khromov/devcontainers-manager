@@ -472,9 +472,9 @@
   .logs {
     position: relative;
     background:
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px),
-      #0d0e0a;
-    color: #d8d9cf;
+      repeating-linear-gradient(0deg, var(--screen-line) 0 1px, transparent 1px 3px),
+      var(--screen-bg);
+    color: var(--screen-ink);
     padding: 14px;
     height: calc(100vh - 320px);
     min-height: 360px;
@@ -494,7 +494,7 @@
     width: 0.6em;
     height: 1.05em;
     margin-left: 2px;
-    background: #d8d9cf;
+    background: var(--screen-ink);
     vertical-align: text-bottom;
     animation: lcd-blink 1.05s steps(1) infinite;
   }

@@ -296,8 +296,8 @@
     margin-top: 4px;
     padding: 8px 10px;
     color: var(--ink-soft);
-    background: rgba(56, 139, 253, 0.1);
-    border: 1px solid rgba(56, 139, 253, 0.35);
+    background: color-mix(in srgb, var(--info) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
     border-radius: 4px;
   }
   .desc {

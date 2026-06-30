@@ -6,27 +6,27 @@
     <title>Devcontainers Manager</title>
     <style>
       :root {
-        /* === Black & white "LCD" theme — monochrome grayscale ramp === */
-        --bg: #d7d8d2; /* LCD panel base */
-        --bg-card: #e7e8e2; /* raised surface */
-        --ink: #14150f; /* near-black */
+        --bg: #d7d8d2;
+        --bg-card: #e7e8e2;
+        --ink: #14150f;
         --ink-soft: #45463e;
         --ink-faint: #7d7e74;
-        --rule: #20211a; /* hard near-black hairline borders */
-        --rule-soft: #b9bab2; /* subtle internal dividers */
-        /* The one accent: muted amber for warnings (instrument-panel convention). */
+        --rule: #20211a;
+        --rule-soft: #b9bab2;
         --warn-bg: #e4d98f;
         --warn-line: #9c8729;
         --warn-ink: #463b08;
-        /* Muted green, reserved for the "all credentials OK" state. */
         --ok-bg: #8fbf6e;
         --ok-line: #4c7a2e;
         --ok-ink: #1c3110;
-        /* Red, reserved for destructive actions (delete). */
         --danger: #b23a2e;
         --danger-soft: #e3c6c1;
-        /* Semantic accent vars remapped to grayscale so any un-edited
-           reference degrades to monochrome instead of leaking a hue. */
+        --screen-bg: #0d0e0a;
+        --screen-ink: #d8d9cf;
+        --screen-line: rgba(255, 255, 255, 0.04);
+        --attn-done: #22c55e;
+        --attn-waiting: #f59e0b;
+        --info: #388bfd;
         --green-700: #14150f;
         --green-600: #14150f;
         --green-200: #9a9b91;
@@ -35,12 +35,10 @@
         --red-100: #c6c7bc;
         --amber-600: #14150f;
         --amber-100: #c6c7bc;
-        /* Dot-matrix display font is the signature "LCD" move; everything
-           else is monospace. Aliases let existing component refs flip over. */
         --font-display: 'Doto Variable', 'JetBrains Mono Variable', monospace;
         --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        --font-serif: var(--font-display); /* headings/brand/labels → dot-matrix */
-        --font-sans: var(--font-mono); /* all body text → mono */
+        --font-serif: var(--font-display);
+        --font-sans: var(--font-mono);
       }
       * {
         box-sizing: border-box;

@@ -100,32 +100,32 @@
     0%,
     100% {
       background: transparent;
-      box-shadow: inset 0 -2px 0 rgba(34, 197, 94, 0.4);
+      box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--attn-done) 40%, transparent);
     }
     50% {
-      background: rgba(34, 197, 94, 0.32);
-      box-shadow: inset 0 -2px 0 rgba(34, 197, 94, 1);
+      background: color-mix(in srgb, var(--attn-done) 32%, transparent);
+      box-shadow: inset 0 -2px 0 var(--attn-done);
     }
   }
   @keyframes attn-pulse-amber {
     0%,
     100% {
       background: transparent;
-      box-shadow: inset 0 -2px 0 rgba(245, 158, 11, 0.4);
+      box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--attn-waiting) 40%, transparent);
     }
     50% {
-      background: rgba(245, 158, 11, 0.32);
-      box-shadow: inset 0 -2px 0 rgba(245, 158, 11, 1);
+      background: color-mix(in srgb, var(--attn-waiting) 32%, transparent);
+      box-shadow: inset 0 -2px 0 var(--attn-waiting);
     }
   }
   @media (prefers-reduced-motion: reduce) {
     .tab.attn-done,
     .tab.attn-waiting {
       animation-duration: 0s;
-      background: rgba(34, 197, 94, 0.28);
+      background: color-mix(in srgb, var(--attn-done) 28%, transparent);
     }
     .tab.attn-waiting {
-      background: rgba(245, 158, 11, 0.28);
+      background: color-mix(in srgb, var(--attn-waiting) 28%, transparent);
     }
   }
   .tab-label {

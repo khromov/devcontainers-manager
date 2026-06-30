@@ -19,6 +19,57 @@
   import ComponentDemo from './ui-showcase/ComponentDemo.svelte';
   import type { Instance } from '../types.ts';
 
+  // --- Design tokens (mirrors :root in src/shell.html) ---
+  // `token` drives the swatch fill via var(--token) so it auto-syncs with the
+  // real value; `hex` is a text label only. `border` flags pale chips that need
+  // an outline to read against the panel.
+  const palette: { group: string; swatches: { token: string; hex: string; border?: boolean }[] }[] = [
+    {
+      group: 'Surfaces',
+      swatches: [
+        { token: '--bg', hex: '#d7d8d2', border: true },
+        { token: '--bg-card', hex: '#e7e8e2', border: true },
+        { token: '--screen-bg', hex: '#0d0e0a' },
+      ],
+    },
+    {
+      group: 'Ink / text',
+      swatches: [
+        { token: '--ink', hex: '#14150f' },
+        { token: '--ink-soft', hex: '#45463e' },
+        { token: '--ink-faint', hex: '#7d7e74' },
+      ],
+    },
+    {
+      group: 'Rules',
+      swatches: [
+        { token: '--rule', hex: '#20211a' },
+        { token: '--rule-soft', hex: '#b9bab2', border: true },
+      ],
+    },
+    {
+      group: 'Semantic',
+      swatches: [
+        { token: '--warn-bg', hex: '#e4d98f', border: true },
+        { token: '--warn-line', hex: '#9c8729' },
+        { token: '--warn-ink', hex: '#463b08' },
+        { token: '--ok-bg', hex: '#8fbf6e' },
+        { token: '--ok-line', hex: '#4c7a2e' },
+        { token: '--ok-ink', hex: '#1c3110' },
+        { token: '--danger', hex: '#b23a2e' },
+        { token: '--danger-soft', hex: '#e3c6c1', border: true },
+        { token: '--info', hex: '#388bfd' },
+      ],
+    },
+    {
+      group: 'Attention',
+      swatches: [
+        { token: '--attn-done', hex: '#22c55e' },
+        { token: '--attn-waiting', hex: '#f59e0b' },
+      ],
+    },
+  ];
+
   // --- Avatar controls ---
   let avatarScale = $state(8);
   let avatarName = $state('demo-instance');
@@ -103,6 +154,31 @@
   </header>
 
   <div class="grid">
+    <details class="palette-card" open>
+      <summary>
+        <span class="palette-title">Color palette</span>
+        <span class="palette-hint">Design tokens — tap to expand</span>
+      </summary>
+      <div class="palette">
+        {#each palette as { group, swatches } (group)}
+          <div class="swatch-group">
+            <h3>{group}</h3>
+            <div class="swatches">
+              {#each swatches as { token, hex, border } (token)}
+                <figure class="swatch">
+                  <div class="chip" class:bordered={border} style="background: var({token});"></div>
+                  <figcaption>
+                    <code>{token}</code>
+                    <span>{hex}</span>
+                  </figcaption>
+                </figure>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </div>
+    </details>
+
     <ComponentDemo title="Avatar">
       <Avatar
         id={avatarId}
@@ -264,7 +340,7 @@
           <StatusBadge status={s} />
         {/each}
       </div>
-      <div class="badge-row" style="margin-top: 14px;">
+      <div class="badge-row">
         <StatusBadge status={badgeStatus} />
       </div>
       {#snippet controls()}
@@ -395,5 +471,92 @@
   .presets button:hover {
     background: var(--ink);
     color: var(--bg);
+  }
+
+  /* Color palette — collapsible card, matches the demo card chrome. */
+  .palette-card {
+    background: var(--bg-card);
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .palette-card > summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+  .palette-card > summary::-webkit-details-marker {
+    display: none;
+  }
+  .palette-card[open] > summary {
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .palette-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .palette-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+  }
+  .palette-card[open] .palette-hint {
+    visibility: hidden;
+  }
+  .palette {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    padding: 18px 14px;
+  }
+  .swatch-group h3 {
+    margin: 0 0 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .swatch {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .swatch .chip {
+    height: 44px;
+    border: 1px solid transparent;
+  }
+  .swatch .chip.bordered {
+    border-color: var(--rule-soft);
+  }
+  .swatch figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .swatch figcaption code {
+    color: var(--ink);
+  }
+  .swatch figcaption span {
+    color: var(--ink-faint);
+    text-transform: uppercase;
   }
 </style>

@@ -196,7 +196,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(20, 21, 15, 0.5);
+    background: color-mix(in srgb, var(--ink) 50%, transparent);
     display: grid;
     place-items: center;
     padding: 24px;
@@ -473,6 +473,7 @@
   .warn code {
     font-family: var(--font-mono);
     font-size: 0.9em;
+    /* Intentional white glint to lift the code chip off the amber warn bg — not a palette token. */
     background: rgba(255, 255, 255, 0.35);
     border: 1px solid var(--warn-line);
     padding: 0 5px;
