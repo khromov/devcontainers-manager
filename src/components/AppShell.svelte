@@ -6,6 +6,7 @@
   import IdeLoader from './IdeLoader.svelte';
   import { playChime, unlockAudio } from '../sound.ts';
   import { liveStream } from '../live.ts';
+  import { apiPost } from '../api.ts';
 
   // `initialPath` is the URL the document was served for; `snapshot` is the
   // reconciled instance list at render time, used to seed the live state so both
@@ -151,7 +152,9 @@
     if (!active || !attention[active]) return;
     const dismiss = () => {
       if (document.visibilityState === 'visible') {
-        void fetch(`/api/instances/${active}/attention/clear`, { method: 'POST' });
+        void apiPost(`/api/instances/${active}/attention/clear`).catch(() => {
+          /* best-effort — the next visibility change retries */
+        });
       }
     };
     dismiss();

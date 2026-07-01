@@ -1,4 +1,4 @@
-import { execInContainer } from '../lib/exec.server.ts';
+import { checkPresence, execInContainer } from '../lib/exec.server.ts';
 import { spawnCapture } from '../lib/spawn.server.ts';
 import type { Injection } from '../lib/injections.server.ts';
 
@@ -69,11 +69,9 @@ export const gitIdentity: Injection = {
   },
 
   async check(target) {
-    const res = await execInContainer(target, {
-      capture: true,
-      script:
-        '[ -n "$(git config --global user.name)" ] && [ -n "$(git config --global user.email)" ] && echo 1 || echo 0',
-    });
-    return res.ok && res.stdout === '1';
+    return checkPresence(
+      target,
+      '[ -n "$(git config --global user.name)" ] && [ -n "$(git config --global user.email)" ] && echo 1 || echo 0',
+    );
   },
 };

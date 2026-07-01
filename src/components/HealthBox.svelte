@@ -61,8 +61,8 @@
   });
 </script>
 
-<div class="healthwrap" class:dim={!active && !health}>
-  <div class="bar">Health</div>
+<div class="healthwrap panel" class:dim={!active && !health}>
+  <div class="panel-bar">Health</div>
   <div class="health">
     {#if health}
       {#each checks as check (check.label)}
@@ -97,23 +97,11 @@
 
 <style>
   .healthwrap {
-    border: 1px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
     overflow: hidden;
   }
   /* Container isn't running yet: gray the panel out instead of loading it. */
   .healthwrap.dim {
     opacity: 0.5;
-  }
-  .bar {
-    padding: 9px 14px;
-    background: var(--ink);
-    color: var(--bg);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
   }
   .health {
     background: var(--bg-card);

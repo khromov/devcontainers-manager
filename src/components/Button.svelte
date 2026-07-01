@@ -37,7 +37,14 @@
 </script>
 
 {#if href}
-  <a class="btn {variant} {size}" class:ghost {href} {...rest}>
+  <a
+    class="btn {variant} {size}"
+    class:ghost
+    href={disabled ? undefined : href}
+    aria-disabled={disabled || undefined}
+    tabindex={disabled ? -1 : undefined}
+    {...rest}
+  >
     {#if Icon}<Icon size={resolvedIconSize} />{/if}
     {@render children?.()}
   </a>
@@ -67,6 +74,14 @@
   .btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  /* `disabled` has no native effect on an <a> — the href branch above drops the
+     href entirely when disabled, but it still needs the same visual treatment
+     and to be excluded from the tab order / assistive-tech actions. */
+  .btn[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   /* Sizes */

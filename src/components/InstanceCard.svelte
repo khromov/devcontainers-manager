@@ -25,7 +25,7 @@
   } = $props();
 </script>
 
-<li class="card">
+<li class="card panel">
   <div class="card-head">
     <Avatar id={instance.id} name={instance.name} interactive />
     {#if editing}
@@ -89,9 +89,7 @@
 <style>
   .card {
     background: var(--bg-card);
-    border: 1px solid var(--ink);
     padding: 16px 16px 14px;
-    box-shadow: 4px 4px 0 var(--ink);
     transition: transform 0.08s steps(2), box-shadow 0.08s steps(2);
   }
   .card:hover {
@@ -110,10 +108,6 @@
     width: 14px;
     height: 14px;
     border: 1px solid var(--ink);
-    /* Solid base fill so the square is visible the instant it appears — the
-       animation only pulses brightness + glow on top of this, never fades in
-       from transparent. */
-    background: var(--attn-done);
   }
   .attn.attn-done {
     background: var(--attn-done);

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { GITHUB_TOKEN } from '../lib/config.server.ts';
-import { execInContainer } from '../lib/exec.server.ts';
+import { checkPresence, execInContainer } from '../lib/exec.server.ts';
 import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
@@ -120,10 +120,6 @@ export const githubCredentials: Injection = {
   },
 
   async check(target) {
-    const res = await execInContainer(target, {
-      capture: true,
-      script: '[ -s ~/.config/gh/hosts.yml ] && echo 1 || echo 0',
-    });
-    return res.ok && res.stdout === '1';
+    return checkPresence(target, '[ -s ~/.config/gh/hosts.yml ] && echo 1 || echo 0');
   },
 };

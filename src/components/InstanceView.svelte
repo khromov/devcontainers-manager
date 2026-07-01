@@ -138,8 +138,8 @@
     <HealthBox {health} {lastFetchedAt} {injectionChecks} active={instance?.status === 'running'} />
   </div>
 
-  <section class="ports">
-    <div class="ports-bar">
+  <section class="ports panel">
+    <div class="ports-bar panel-bar">
       <span>Forwarded ports</span>
       {#if pendingRebuild}
         <button class="rebuild" onclick={restart} disabled={building}>
@@ -185,8 +185,8 @@
     </div>
   </section>
 
-  <div class="logwrap">
-    <div class="logbar">Boot log</div>
+  <div class="logwrap panel">
+    <div class="panel-bar">Boot log</div>
     <div class="logs" {@attach autoscroll}><pre>{logs || 'Waiting for output…'}<span class="caret"></span></pre></div>
     {#if instance?.status === 'error' && instance.error}
       <div class="err">{instance.error}</div>
@@ -279,22 +279,12 @@
     margin-bottom: 18px;
   }
   .ports {
-    border: 1px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
     margin-bottom: 18px;
   }
   .ports-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 14px;
-    background: var(--ink);
-    color: var(--bg);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
   }
   .rebuild {
     font-family: var(--font-mono);
@@ -424,19 +414,7 @@
     color: var(--ink);
   }
   .logwrap {
-    border: 1px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
     overflow: hidden;
-  }
-  .logbar {
-    padding: 9px 14px;
-    background: var(--ink);
-    color: var(--bg);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
   }
   /* The one "screen": a black LCD panel with faint scanlines. */
   .logs {
@@ -458,7 +436,16 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
-  /* Blinking block cursor — the live-terminal tell. */
+  /* Blinking block cursor — the live-terminal tell. Defined locally rather than
+     relying on StatusBadge's same-named keyframes: Svelte scopes `@keyframes`
+     per component (renaming both the block and any same-file `animation`
+     reference), so a keyframe defined in another component never actually
+     resolves here. */
+  @keyframes lcd-blink {
+    50% {
+      background: transparent;
+    }
+  }
   .caret {
     display: inline-block;
     width: 0.6em;
