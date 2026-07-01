@@ -1,18 +1,16 @@
 <script lang="ts">
   // A shimmering placeholder bar shown while live data loads. `variant` picks a
-  // preset shape; `width`/`height` override the dimensions for one-offs.
+  // preset shape; `width` overrides the width for one-offs.
   let {
     variant = 'text',
     width,
-    height,
   }: {
     variant?: 'text' | 'pill' | 'wide';
     width?: string;
-    height?: string;
   } = $props();
 </script>
 
-<span class="skel {variant}" style:width style:height></span>
+<span class="skel {variant}" style:width></span>
 
 <style>
   .skel {

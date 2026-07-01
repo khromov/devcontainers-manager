@@ -238,19 +238,30 @@ export function streamClose(ws: ServerWebSocket<unknown>): void {
 // globalThis (survives dev hot-reload), and union it with the DB ports so each
 // allocation sees the ones still in flight. Reservations that have since landed
 // in the DB are pruned on every call, so the set never grows unbounded.
-const globalForPorts = globalThis as unknown as { __dcmReservedPorts?: Set<number> };
-const reservedPorts: Set<number> = (globalForPorts.__dcmReservedPorts ??= new Set());
+//
+// Each reservation also carries the time it was made. A reservation only needs to
+// bridge the gap until its row/forward is inserted (milliseconds, and always the
+// very next statement in every caller); if that insert never happens — e.g. boot
+// fails before persisting a seeded forward — the reservation would otherwise stay
+// forever and permanently shrink the range. So we also drop any reservation older
+// than the TTL: far longer than any real allocate→insert gap, but a hard backstop
+// against leaking the range on a failed insert.
+const RESERVATION_TTL_MS = 60_000;
+const globalForPorts = globalThis as unknown as { __dcmReservedPorts?: Map<number, number> };
+const reservedPorts: Map<number, number> = (globalForPorts.__dcmReservedPorts ??= new Map());
 
 function allocatePort(): number {
   const dbPorts = new Set(usedPorts());
-  // Drop reservations that have already been persisted — they're now covered by
-  // the DB set, so keeping them reserved would only leak the range.
-  for (const port of [...reservedPorts]) {
-    if (dbPorts.has(port)) reservedPorts.delete(port);
+  const now = Date.now();
+  // Drop reservations that have already been persisted (now covered by the DB set)
+  // or that have aged past the TTL (their insert never landed) — either way keeping
+  // them reserved would only leak the range.
+  for (const [port, reservedAt] of reservedPorts) {
+    if (dbPorts.has(port) || now - reservedAt > RESERVATION_TTL_MS) reservedPorts.delete(port);
   }
   for (let port = PORT_BASE; port <= PORT_MAX; port++) {
     if (!dbPorts.has(port) && !reservedPorts.has(port)) {
-      reservedPorts.add(port);
+      reservedPorts.set(port, now);
       return port;
     }
   }
