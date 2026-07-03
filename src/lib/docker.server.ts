@@ -90,12 +90,44 @@ export async function stopContainer(containerId: string): Promise<boolean> {
 	}
 }
 
-/** Force-remove a container; treats an already-absent container as success. */
+/**
+ * Force-remove a container *and* the volumes attached to it; treats an
+ * already-absent container as success. We inspect the container first to
+ * discover its `volume` mounts (bind mounts like the workspace copy are
+ * skipped), then remove the container with `v: true` — which drops the
+ * container's *anonymous* volumes — and finally remove any *named* volumes
+ * explicitly, since the engine never auto-removes those. Volume removal is
+ * best-effort: a 404 (already gone, e.g. an anonymous volume dropped by
+ * `v: true`) or 409 (still in use) must not make the delete fail.
+ */
 export async function removeContainer(containerId: string): Promise<boolean> {
+	const docker = await getDocker();
+	const container = docker.getContainer(containerId);
+
+	let volumeNames: string[] = [];
 	try {
-		await (await getDocker()).getContainer(containerId).remove({ force: true });
-		return true;
+		const info = await container.inspect();
+		volumeNames = (info.Mounts ?? [])
+			.filter((m) => m.Type === 'volume' && m.Name)
+			.map((m) => m.Name!);
 	} catch (err) {
-		return statusOf(err) === 404; // no such container
+		if (statusOf(err) !== 404) throw err;
+		return true; // no such container — nothing to clean up
 	}
+
+	try {
+		await container.remove({ force: true, v: true });
+	} catch (err) {
+		if (statusOf(err) !== 404) return false; // already absent counts as success
+	}
+
+	for (const name of volumeNames) {
+		try {
+			await docker.getVolume(name).remove({ force: true });
+		} catch {
+			// best-effort: anonymous volume already dropped by `v: true` (404),
+			// or a shared volume still in use (409) — leave it be.
+		}
+	}
+	return true;
 }
