@@ -3,11 +3,22 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { GITHUB_TOKEN } from '../lib/config.server.ts';
+import { getOption } from '../lib/db.server.ts';
 import { checkPresence, execInContainer } from '../lib/exec.server.ts';
 import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const GH_HOST = 'github.com';
+
+/**
+ * A token entered by the user in Settings, or null. Only honored when the
+ * "set tokens manually" toggle is on; a blank field falls through to the env
+ * var / host discovery so a user can set just one provider.
+ */
+function manualGithubToken(): string | null {
+	if (getOption('manual_tokens_enabled') !== '1') return null;
+	return getOption('manual_github_token')?.trim() || null;
+}
 
 /** The host's GitHub CLI auth, ready to stage inside a container. */
 interface GhCredentials {
@@ -25,6 +36,8 @@ interface GhCredentials {
  * encrypted file, or GH_TOKEN). Returns null when no token is available.
  */
 async function readGhToken(): Promise<{ token: string; source: string } | null> {
+	const manual = manualGithubToken();
+	if (manual) return { token: manual, source: 'Settings — manual token' };
 	if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
 	const token = await spawnCapture(['gh', 'auth', 'token', '--hostname', GH_HOST]);
 	return token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;

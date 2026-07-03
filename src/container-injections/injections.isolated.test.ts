@@ -36,6 +36,14 @@ describe('injection registry', () => {
 		// No host dependency, so no auth chip.
 		expect(alias!.auth).toBeUndefined();
 	});
+
+	test('claude-aliases is registered with a health check', () => {
+		const aliases = injections.find((i) => i.id === 'claude-aliases');
+		expect(aliases).toBeDefined();
+		expect(typeof aliases!.check).toBe('function');
+		// No host dependency, so no auth chip.
+		expect(aliases!.auth).toBeUndefined();
+	});
 });
 
 describe('attentionHookSettings', () => {

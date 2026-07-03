@@ -7,13 +7,28 @@
 		defaultImage,
 		builtinImage,
 		disableBuildCache,
-		dockerArch
+		dockerArch,
+		manualTokensEnabled,
+		githubTokenSet,
+		claudeTokenSet
 	}: {
 		defaultImage: string;
 		builtinImage: string;
 		disableBuildCache: boolean;
 		dockerArch: string | null;
+		manualTokensEnabled: boolean;
+		githubTokenSet: boolean;
+		claudeTokenSet: boolean;
 	} = $props();
 </script>
 
-<SettingsView {defaultImage} {builtinImage} {disableBuildCache} {dockerArch} mochi:hydrate />
+<SettingsView
+	{defaultImage}
+	{builtinImage}
+	{disableBuildCache}
+	{dockerArch}
+	{manualTokensEnabled}
+	{githubTokenSet}
+	{claudeTokenSet}
+	mochi:hydrate
+/>

@@ -35,6 +35,7 @@ After `devcontainer up`, the app installs a few things into each container. Each
 
 ## Requirements
 
+- macOS and Linux are supported (Windows is untested — feel free to [open an issue](../../issues))
 - [Bun](https://bun.sh) >= 1.3.13 (Node.js is not supported)
 - Docker (eg. Docker Desktop or Colima)
 

@@ -7,6 +7,7 @@
 	import Layers from '@lucide/svelte/icons/layers';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Hammer from '@lucide/svelte/icons/hammer';
+	import KeyRound from '@lucide/svelte/icons/key-round';
 	import { soundEnabled, setSoundEnabled } from '../settings.ts';
 	import { playChime, unlockAudio } from '../sound.ts';
 	import { apiPost } from '../api.ts';
@@ -16,12 +17,18 @@
 		defaultImage,
 		builtinImage,
 		disableBuildCache,
-		dockerArch
+		dockerArch,
+		manualTokensEnabled,
+		githubTokenSet,
+		claudeTokenSet
 	}: {
 		defaultImage: string;
 		builtinImage: string;
 		disableBuildCache: boolean;
 		dockerArch: string | null;
+		manualTokensEnabled: boolean;
+		githubTokenSet: boolean;
+		claudeTokenSet: boolean;
 	} = $props();
 
 	// Initialize from localStorage on the client; defaults to on during SSR.
@@ -133,6 +140,76 @@
 			rebuildError = (err as Error).message;
 		} finally {
 			rebuilding = false;
+		}
+	}
+
+	// Manual credential tokens. The DB is the source of truth; initialize the toggle
+	// from the prop. Token values are never sent to the client — we only know whether
+	// each is already set (to show a "saved" placeholder) and never render the secret.
+	// svelte-ignore state_referenced_locally
+	let manualTokens = $state(manualTokensEnabled);
+	let savingManualToggle = $state(false);
+	let manualToggleError = $state<string | null>(null);
+
+	// svelte-ignore state_referenced_locally
+	let ghSaved = $state(githubTokenSet);
+	let githubToken = $state('');
+	let savingGithub = $state(false);
+	let githubMsg = $state<string | null>(null);
+	let githubError = $state<string | null>(null);
+
+	// svelte-ignore state_referenced_locally
+	let claudeSaved = $state(claudeTokenSet);
+	let claudeToken = $state('');
+	let savingClaude = $state(false);
+	let claudeMsg = $state<string | null>(null);
+	let claudeError = $state<string | null>(null);
+
+	async function toggleManualTokens(on: boolean) {
+		manualTokens = on;
+		manualToggleError = null;
+		savingManualToggle = true;
+		try {
+			await apiPost('/api/settings/manual-tokens', { enabled: on });
+		} catch (err) {
+			manualTokens = !on; // revert the optimistic flip on failure
+			manualToggleError = (err as Error).message;
+		} finally {
+			savingManualToggle = false;
+		}
+	}
+
+	async function saveGithubToken(e: Event) {
+		e.preventDefault();
+		githubError = null;
+		githubMsg = null;
+		savingGithub = true;
+		try {
+			await apiPost('/api/settings/manual-tokens', { githubToken: githubToken.trim() });
+			ghSaved = githubToken.trim().length > 0;
+			githubToken = '';
+			githubMsg = ghSaved ? 'Saved.' : 'Cleared.';
+		} catch (err) {
+			githubError = (err as Error).message;
+		} finally {
+			savingGithub = false;
+		}
+	}
+
+	async function saveClaudeToken(e: Event) {
+		e.preventDefault();
+		claudeError = null;
+		claudeMsg = null;
+		savingClaude = true;
+		try {
+			await apiPost('/api/settings/manual-tokens', { claudeToken: claudeToken.trim() });
+			claudeSaved = claudeToken.trim().length > 0;
+			claudeToken = '';
+			claudeMsg = claudeSaved ? 'Saved.' : 'Cleared.';
+		} catch (err) {
+			claudeError = (err as Error).message;
+		} finally {
+			savingClaude = false;
 		}
 	}
 
@@ -287,6 +364,102 @@
 					{rebuilding ? 'Starting…' : 'Rebuild all'}
 				</Button>
 			</div>
+		</section>
+
+		<section class="card">
+			<div class="row">
+				<div class="label">
+					<KeyRound size={18} />
+					<div class="text">
+						<div class="name">Set tokens manually</div>
+						<div class="desc">
+							Provide GitHub and Claude Code tokens yourself instead of discovering them from this
+							machine. Useful on a headless server or when signed in as a different identity. A
+							token set here is injected into every new container and overrides host credential
+							discovery.
+						</div>
+					</div>
+				</div>
+				<label class="switch">
+					<input
+						type="checkbox"
+						checked={manualTokens}
+						disabled={savingManualToggle}
+						onchange={(e) => toggleManualTokens(e.currentTarget.checked)}
+					/>
+					<span class="track"><span class="thumb"></span></span>
+				</label>
+			</div>
+			{#if manualToggleError}
+				<div class="sub"><div class="msg error">{manualToggleError}</div></div>
+			{/if}
+
+			{#if manualTokens}
+				<form class="row divided token-row" onsubmit={saveGithubToken}>
+					<div class="label">
+						<div class="text">
+							<div class="name">GitHub token</div>
+							<div class="desc">
+								macOS / Linux: run <code>gh auth token</code> to print your GitHub CLI token, or
+								create a Personal Access Token at
+								<code>github.com/settings/tokens</code> (scopes: <code>repo</code>,
+								<code>read:org</code>). Leave blank and Save to clear.
+							</div>
+						</div>
+					</div>
+					<div class="image-controls">
+						<input
+							type="password"
+							class="image-input"
+							bind:value={githubToken}
+							spellcheck="false"
+							autocapitalize="off"
+							autocorrect="off"
+							autocomplete="off"
+							placeholder={ghSaved ? '•••••••• (saved)' : 'ghp_… / gho_…'}
+						/>
+						<Button type="submit" disabled={savingGithub}>Save</Button>
+					</div>
+					{#if githubError}
+						<div class="msg error">{githubError}</div>
+					{:else if githubMsg}
+						<div class="msg ok">{githubMsg}</div>
+					{/if}
+				</form>
+
+				<form class="row divided token-row" onsubmit={saveClaudeToken}>
+					<div class="label">
+						<div class="text">
+							<div class="name">Claude Code token</div>
+							<div class="desc">
+								Paste the OAuth <code>accessToken</code>. macOS:
+								<code>security find-generic-password -s "Claude Code-credentials" -w</code> — copy
+								the <code>accessToken</code> field. Linux:
+								<code>cat ~/.claude/.credentials.json</code> — copy the <code>accessToken</code>.
+								Leave blank and Save to clear.
+							</div>
+						</div>
+					</div>
+					<div class="image-controls">
+						<input
+							type="password"
+							class="image-input"
+							bind:value={claudeToken}
+							spellcheck="false"
+							autocapitalize="off"
+							autocorrect="off"
+							autocomplete="off"
+							placeholder={claudeSaved ? '•••••••• (saved)' : 'sk-ant-oat…'}
+						/>
+						<Button type="submit" disabled={savingClaude}>Save</Button>
+					</div>
+					{#if claudeError}
+						<div class="msg error">{claudeError}</div>
+					{:else if claudeMsg}
+						<div class="msg ok">{claudeMsg}</div>
+					{/if}
+				</form>
+			{/if}
 		</section>
 
 		<section class="card">
@@ -453,6 +626,11 @@
 	}
 	/* Default-image editor: input + Save, stacked under the label on narrow widths. */
 	.image-row {
+		flex-wrap: wrap;
+	}
+	/* Manual-token rows: same input+Save layout, allowed to wrap so the help text and
+	   the "Saved." message drop below the field on narrow widths. */
+	.token-row {
 		flex-wrap: wrap;
 	}
 	.image-controls {

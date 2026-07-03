@@ -68,7 +68,8 @@ export const TRUSTED_ORIGINS = (process.env.TRUSTED_ORIGINS || '')
  * Optional token overrides for credential injection. When set, the manager injects
  * this token into every container instead of discovering the host's credentials
  * (macOS Keychain / ~/.claude / `gh auth token`). Useful on servers/CI or to pin a
- * specific identity.
+ * specific identity. A token entered in Settings ("Set tokens manually") takes
+ * precedence over these env vars; see the two credential injections for the order.
  */
 export const CLAUDE_CODE_TOKEN = process.env.DCM_CLAUDE_CODE_TOKEN?.trim() || '';
 export const GITHUB_TOKEN = process.env.DCM_GITHUB_TOKEN?.trim() || '';

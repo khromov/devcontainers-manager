@@ -135,7 +135,12 @@ export const routes: Record<string, MochiRouteValue> = {
 			defaultImage: getOption('default_image') ?? DEFAULT_IMAGE,
 			builtinImage: DEFAULT_IMAGE,
 			disableBuildCache: getOption('disable_build_cache') === '1',
-			dockerArch: await dockerArch()
+			dockerArch: await dockerArch(),
+			// Manual token overrides: send only whether each is set (never the secret
+			// value itself) plus the toggle state, so the page can render placeholders.
+			manualTokensEnabled: getOption('manual_tokens_enabled') === '1',
+			githubTokenSet: !!getOption('manual_github_token'),
+			claudeTokenSet: !!getOption('manual_claude_code_token')
 		})
 	}),
 
@@ -154,6 +159,33 @@ export const routes: Record<string, MochiRouteValue> = {
 		const body = (await request.json().catch(() => null)) as { enabled?: boolean } | null;
 		if (typeof body?.enabled !== 'boolean') throw new Error('enabled (boolean) is required');
 		setOption('disable_build_cache', body.enabled ? '1' : '0');
+		return { ok: true };
+	}),
+
+	// Manually-provided GitHub / Claude Code tokens (partial update: only the keys
+	// present in the body are written). These override host credential discovery for
+	// container injection when the toggle is enabled — see the two credential injections.
+	// A blank token string clears that key. Stored plaintext in the options table; the
+	// values are never sent back to the client (serverProps only reports "is set").
+	'/api/settings/manual-tokens': mutationRoute('POST', async ({ request }) => {
+		const body = (await request.json().catch(() => null)) as {
+			enabled?: boolean;
+			githubToken?: string;
+			claudeToken?: string;
+		} | null;
+		if (!body) throw new Error('Invalid body');
+		if ('enabled' in body) {
+			if (typeof body.enabled !== 'boolean') throw new Error('enabled must be a boolean');
+			setOption('manual_tokens_enabled', body.enabled ? '1' : '0');
+		}
+		if ('githubToken' in body) {
+			if (typeof body.githubToken !== 'string') throw new Error('githubToken must be a string');
+			setOption('manual_github_token', body.githubToken.trim());
+		}
+		if ('claudeToken' in body) {
+			if (typeof body.claudeToken !== 'string') throw new Error('claudeToken must be a string');
+			setOption('manual_claude_code_token', body.claudeToken.trim());
+		}
 		return { ok: true };
 	}),
 

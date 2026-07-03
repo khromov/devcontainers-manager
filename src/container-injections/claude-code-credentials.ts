@@ -3,11 +3,22 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { CLAUDE_CODE_TOKEN } from '../lib/config.server.ts';
+import { getOption } from '../lib/db.server.ts';
 import { checkPresence, execInContainer, writeSecretFileScript } from '../lib/exec.server.ts';
 import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
 
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
+
+/**
+ * A token entered by the user in Settings, or null. Only honored when the
+ * "set tokens manually" toggle is on; a blank field falls through to the env
+ * var / host discovery so a user can set just one provider.
+ */
+function manualClaudeToken(): string | null {
+	if (getOption('manual_tokens_enabled') !== '1') return null;
+	return getOption('manual_claude_code_token')?.trim() || null;
+}
 
 function isValid(json: string): boolean {
 	try {
@@ -24,7 +35,12 @@ function isValid(json: string): boolean {
  * macOS keeps them in the login Keychain; Linux/others use ~/.claude/.credentials.json.
  */
 async function locateClaudeCredentials(): Promise<{ creds: string; source: string } | null> {
-	// An explicit token override wins over any host discovery.
+	// A token set in Settings wins, then the env override, then host discovery.
+	const manual = manualClaudeToken();
+	if (manual) {
+		const creds = JSON.stringify({ claudeAiOauth: { accessToken: manual } });
+		return { creds, source: 'Settings — manual token' };
+	}
 	if (CLAUDE_CODE_TOKEN) {
 		const creds = JSON.stringify({ claudeAiOauth: { accessToken: CLAUDE_CODE_TOKEN } });
 		return { creds, source: 'DCM_CLAUDE_CODE_TOKEN env var' };

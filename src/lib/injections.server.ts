@@ -6,6 +6,7 @@ import { claudeCodeCredentials } from '../container-injections/claude-code-crede
 import { githubCredentials } from '../container-injections/github-credentials.ts';
 import { attentionHooks } from '../container-injections/attention-hooks.ts';
 import { claudeSkipPermissions } from '../container-injections/claude-skip-permissions.ts';
+import { claudeAliases } from '../container-injections/claude-aliases.ts';
 
 /**
  * A running container an injection acts on, plus the instance row behind it.
@@ -62,5 +63,6 @@ export const injections: Injection[] = [
 	claudeCodeCredentials,
 	githubCredentials,
 	attentionHooks,
-	claudeSkipPermissions
+	claudeSkipPermissions,
+	claudeAliases
 ];
