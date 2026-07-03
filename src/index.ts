@@ -40,6 +40,14 @@ await Mochi.serve({
 		trustedOrigins: TRUSTED_ORIGINS
 	},
 	filters: {
+		// Exempt the bridge from Mochi's framework-level CSRF origin check. Containers
+		// POST here from a plain `curl` with no Origin header, so the origin check would
+		// 403 every attention ping before it reaches the handler. This is safe: the route
+		// authenticates by a per-instance bearer token (see auth.server.ts / routes.ts),
+		// not by ambient browser credentials, so classic CSRF doesn't apply. Returning
+		// null bypasses the block; anything else delegates to Mochi's default decision.
+		'csrf:check': (decision, { url }) =>
+			url.pathname.startsWith('/api/bridge/') ? null : decision,
 		'consoleLogger:line': (line, ctx) => {
 			const kept = silenceInternalRoutes(line, ctx);
 			if (kept == null) {
