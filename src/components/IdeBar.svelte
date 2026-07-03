@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { type Instance } from '../types.ts';
-	import House from '@lucide/svelte/icons/house';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Avatar from './Avatar.svelte';
+	import AppBar from './AppBar.svelte';
 
 	let {
 		running,
@@ -17,8 +17,7 @@
 	} = $props();
 </script>
 
-<header class="bar">
-	<a class="home" href="/" title="All instances" aria-label="All instances"><House size={18} /></a>
+<AppBar>
 	{#if running.length > 0}
 		<nav class="tabs">
 			{#each running as inst (inst.id)}
@@ -42,30 +41,9 @@
 		</nav>
 	{/if}
 	<a class="cog" href="/settings" title="Settings" aria-label="Settings"><Settings size={18} /></a>
-</header>
+</AppBar>
 
 <style>
-	.bar {
-		display: flex;
-		align-items: stretch;
-		gap: 0;
-		height: 44px;
-		border-bottom: 1px solid var(--rule);
-		background: var(--bg-card);
-	}
-	.home {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 48px;
-		flex: none;
-		color: var(--ink);
-		border-right: 1px solid var(--rule);
-	}
-	.home:hover {
-		background: var(--ink);
-		color: var(--bg);
-	}
 	.cog {
 		display: inline-flex;
 		align-items: center;

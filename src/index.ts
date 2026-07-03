@@ -2,16 +2,22 @@ import { Mochi, silenceInternalRoutes } from 'mochi-framework';
 import { routes } from './routes.ts';
 import { basicAuth } from './lib/auth.server.ts';
 import { PROXY_PREFIX } from './lib/proxy.server.ts';
-import { BASIC_AUTH_PASSWORD } from './lib/config.server.ts';
+import { BASIC_AUTH_PASSWORD, HOST } from './lib/config.server.ts';
 
 const PORT = Number(process.env.PORT) || 3333;
 
 if (!BASIC_AUTH_PASSWORD) {
 	console.warn('⚠ BASIC_AUTH_PASSWORD is not set — the UI and all instances are unprotected.');
 }
+if (HOST !== '127.0.0.1' && HOST !== 'localhost' && !BASIC_AUTH_PASSWORD) {
+	console.warn(
+		`⚠ Binding to ${HOST} (non-loopback) without a password — anyone on the network can reach this server.`
+	);
+}
 
 await Mochi.serve({
 	port: PORT,
+	hostname: HOST,
 	development: process.env.MODE === 'development',
 	htmlShell: './src/shell.html',
 	// Trailing-slash normalization is disabled entirely: the proxy's `/p/:id`
@@ -47,7 +53,7 @@ await Mochi.serve({
 });
 
 const url = 'http://localhost:' + PORT;
-console.log('Server running at ' + url);
+console.log(`Server running at ${url} (bound to ${HOST})`);
 
 // Open the web UI in the user's default browser on startup.
 // Set DISABLE_OPEN_BROWSER=1 to skip (e.g. headless or Claude Code runs).

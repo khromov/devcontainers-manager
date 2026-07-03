@@ -2,6 +2,7 @@ import Docker from 'dockerode';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DOCKER_HOST, dockerEnv } from './config.server.ts';
+import { spawnCapture } from './spawn.server.ts';
 
 /**
  * Shared dockerode client. Every Docker Engine operation goes through `getDocker()`
@@ -42,16 +43,12 @@ async function resolveDocker(): Promise<Docker> {
 
 /** Read the active Docker context's daemon host via the CLI, once. `''` on any failure. */
 async function dockerContextHost(): Promise<string> {
-	try {
-		const proc = Bun.spawn(
+	return (
+		(await spawnCapture(
 			['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'],
-			{ stdout: 'pipe', stderr: 'ignore', env: dockerEnv() }
-		);
-		const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-		return code === 0 ? out.trim() : '';
-	} catch {
-		return '';
-	}
+			{ env: dockerEnv() }
+		)) ?? ''
+	);
 }
 
 /**
@@ -80,7 +77,7 @@ function tlsMaterials(): { ca?: Buffer; cert?: Buffer; key?: Buffer } {
  * from `DOCKER_CERT_PATH` (default `~/.docker`), matching the docker CLI.
  * (Windows `npipe://` is not supported here — this app runs on macOS/Linux.)
  */
-export function parseDockerHost(host: string): Docker.DockerOptions {
+function parseDockerHost(host: string): Docker.DockerOptions {
 	if (host.startsWith('unix://')) {
 		return { socketPath: host.slice('unix://'.length) };
 	}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Container from '@lucide/svelte/icons/container';
-	import House from '@lucide/svelte/icons/house';
+	import AppBar from './AppBar.svelte';
 	import Power from '@lucide/svelte/icons/power';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
@@ -81,11 +81,9 @@
 </script>
 
 <div class="page">
-	<header class="bar">
-		<a class="home" href="/" title="All instances" aria-label="All instances"><House size={18} /></a
-		>
+	<AppBar>
 		<span class="title">Settings</span>
-	</header>
+	</AppBar>
 
 	<main class="content">
 		<section class="card">
@@ -192,28 +190,9 @@
 		flex-direction: column;
 		min-height: 100vh;
 	}
-	.bar {
-		display: flex;
-		align-items: center;
-		height: 44px;
-		border-bottom: 1px solid var(--rule);
-		background: var(--bg-card);
-	}
-	.home {
+	.title {
 		display: inline-flex;
 		align-items: center;
-		justify-content: center;
-		width: 48px;
-		flex: none;
-		color: var(--ink);
-		border-right: 1px solid var(--rule);
-		height: 100%;
-	}
-	.home:hover {
-		background: var(--ink);
-		color: var(--bg);
-	}
-	.title {
 		padding: 0 14px;
 		font-family: var(--font-mono);
 		font-size: 12px;

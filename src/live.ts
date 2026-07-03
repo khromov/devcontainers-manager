@@ -41,14 +41,21 @@ export function liveSocket(
  * `StreamEvent`s — malformed frames are silently dropped. Wraps `liveSocket` so
  * each caller no longer repeats the JSON.parse + try/catch + type guard.
  */
-export function liveStream(onEvent: (event: StreamEvent) => void): () => void {
-	return liveSocket('/api/stream', (raw) => {
-		let msg: StreamEvent;
-		try {
-			msg = JSON.parse(raw) as StreamEvent;
-		} catch {
-			return; // ignore malformed frame
-		}
-		onEvent(msg);
-	});
+export function liveStream(
+	onEvent: (event: StreamEvent) => void,
+	onOpen?: () => void
+): () => void {
+	return liveSocket(
+		'/api/stream',
+		(raw) => {
+			let msg: StreamEvent;
+			try {
+				msg = JSON.parse(raw) as StreamEvent;
+			} catch {
+				return; // ignore malformed frame
+			}
+			onEvent(msg);
+		},
+		onOpen
+	);
 }

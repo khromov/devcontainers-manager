@@ -121,27 +121,36 @@
 	// a non-focused tab newly raises (or changes) its signal. Only `instances`
 	// events matter here; `health` events are for the instance detail view.
 	$effect(() => {
-		let primed = false; // skip the first frame so a reconnect doesn't replay sounds
-		return liveStream((msg) => {
-			if (msg.type === 'preflight') {
-				livePreflight = { ...livePreflight, docker: msg.data.docker, cli: msg.data.cli };
-				return;
-			}
-			if (msg.type !== 'instances') return;
-			const next = msg.data;
-			const nextAttention: Record<string, 'done' | 'waiting' | null> = {};
-			for (const inst of next) nextAttention[inst.id] = inst.attention;
-			if (primed) {
-				for (const id in nextAttention) {
-					const state = nextAttention[id];
-					if (state && state !== attention[id] && id !== active) playChime(state);
+		// Skip the first frame after each (re)connect so the server's re-seed of
+		// the full list is treated as the baseline rather than a live change —
+		// otherwise a reconnect would replay chimes for anything that shifted while
+		// we were disconnected.
+		let primed = false;
+		return liveStream(
+			(msg) => {
+				if (msg.type === 'preflight') {
+					livePreflight = { ...livePreflight, docker: msg.data.docker, cli: msg.data.cli };
+					return;
 				}
+				if (msg.type !== 'instances') return;
+				const next = msg.data;
+				const nextAttention: Record<string, 'done' | 'waiting' | null> = {};
+				for (const inst of next) nextAttention[inst.id] = inst.attention;
+				if (primed) {
+					for (const id in nextAttention) {
+						const state = nextAttention[id];
+						if (state && state !== attention[id] && id !== active) playChime(state);
+					}
+				}
+				primed = true;
+				instances = next;
+				attention = nextAttention;
+				loaded = true;
+			},
+			() => {
+				primed = false;
 			}
-			primed = true;
-			instances = next;
-			attention = nextAttention;
-			loaded = true;
-		});
+		);
 	});
 
 	// The focused tab shouldn't pulse: dismiss its signal server-side (for all

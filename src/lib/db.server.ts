@@ -3,19 +3,13 @@ import { migrate, getMigrations } from '@zihaolam/bun-sqlite-migrations';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DATA_DIR, DB_PATH } from './config.server.ts';
+import type { FolderHistoryEntry } from '../types.ts';
 
 // db.server.ts lives in src/lib, so ../../migrations resolves to the repo root.
 const MIGRATIONS_DIR = join(import.meta.dir, '../../migrations');
 
 /** Possible lifecycle states for an instance row. */
 export type InstanceStatus = 'creating' | 'running' | 'stopped' | 'error';
-
-/** One previously-used source folder, kept for quick re-creation. */
-export interface FolderHistoryRow {
-	source_path: string;
-	name: string;
-	last_used_at: number;
-}
 
 /** Durable record of one devcontainer instance. */
 export interface InstanceRow {
@@ -184,10 +178,10 @@ export function recordFolder(source_path: string, name: string): void {
 	).run({ $source_path: source_path, $name: name, $last_used_at: Date.now() });
 }
 
-export function listFolderHistory(): FolderHistoryRow[] {
+export function listFolderHistory(): FolderHistoryEntry[] {
 	return db
 		.query('SELECT * FROM folder_history ORDER BY last_used_at DESC')
-		.all() as FolderHistoryRow[];
+		.all() as FolderHistoryEntry[];
 }
 
 export function deleteFolderHistory(source_path: string): void {

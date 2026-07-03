@@ -7,20 +7,25 @@ function bridgeUrl(): string {
 	return `http://host.docker.internal:${port}/api/bridge/attention`;
 }
 
+/** Where each container keeps its bridge-auth header, resolved at hook runtime. */
+const HEADER_FILE = '${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.bridge-header';
+
 /**
  * One `type: command` hook firing curl at the bridge with the given state. The
- * token rides in a header (`X-Bridge-Token`), not the query string, so it
- * doesn't end up in server request logs the way a query param would — `id`/
- * `state` aren't secret, so they stay in the query string.
+ * token rides in a header (`X-Bridge-Token`), not the query string, so it doesn't
+ * end up in server request logs — and the header is read from a mode-600 file
+ * (`curl -H @<file>`) rather than interpolated onto curl's argv, so it isn't
+ * visible via `ps` inside the container. `id`/`state` aren't secret, so they stay
+ * in the query string.
  */
-function hookFor(id: string, token: string, state: 'done' | 'waiting' | 'busy') {
+function hookFor(id: string, state: 'done' | 'waiting' | 'busy') {
 	const url = `${bridgeUrl()}?id=${encodeURIComponent(id)}&state=${state}`;
 	return [
 		{
 			hooks: [
 				{
 					type: 'command',
-					command: `curl -fsS -m 5 -X POST -H "X-Bridge-Token: ${token}" '${url}' >/dev/null 2>&1 || true`
+					command: `curl -fsS -m 5 -X POST -H @"${HEADER_FILE}" '${url}' >/dev/null 2>&1 || true`
 				}
 			]
 		}
@@ -31,16 +36,34 @@ function hookFor(id: string, token: string, state: 'done' | 'waiting' | 'busy') 
  * The Claude `settings.json` (as a JSON string) injected into a container so its
  * Claude reports task completion / waiting back to the manager. `Stop` → green,
  * `Notification` (needs input/permission) → amber, `UserPromptSubmit` (resumed) → clear.
+ * The bridge token is NOT in here — it lives in a separate mode-600 header file the
+ * hooks read at runtime (see `writeBridgeHeader`).
  */
-export function attentionHookSettings(id: string, token: string): string {
+export function attentionHookSettings(id: string): string {
 	const settings = {
 		hooks: {
-			Stop: hookFor(id, token, 'done'),
-			Notification: hookFor(id, token, 'waiting'),
-			UserPromptSubmit: hookFor(id, token, 'busy')
+			Stop: hookFor(id, 'done'),
+			Notification: hookFor(id, 'waiting'),
+			UserPromptSubmit: hookFor(id, 'busy')
 		}
 	};
 	return JSON.stringify(settings, null, 2);
+}
+
+/**
+ * Stage the per-instance bridge token into a mode-600 `.bridge-header` file (as a
+ * full `X-Bridge-Token: <token>` header line) inside the container's Claude config
+ * dir. The token travels via the scrubbed `$DCM_STDIN` exec var, never on argv.
+ */
+async function writeBridgeHeader(
+	target: ContainerTarget,
+	token: string
+): Promise<{ ok: boolean; error?: string }> {
+	const script =
+		'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
+		'f="$d/.bridge-header"; printf \'X-Bridge-Token: %s\\n\' "$DCM_STDIN" > "$f"; chmod 600 "$f"';
+	const res = await execInContainer(target, { script, stdin: token });
+	return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
 
 /**
@@ -77,7 +100,12 @@ export const attentionHooks: Injection = {
 
 	async apply(target, log) {
 		log('Injecting Claude attention hooks…\n');
-		const settings = attentionHookSettings(target.instance.id, target.instance.bridge_token);
+		const header = await writeBridgeHeader(target, target.instance.bridge_token);
+		if (!header.ok) {
+			log(`⚠ Claude hook injection failed: ${header.error}\n`);
+			return;
+		}
+		const settings = attentionHookSettings(target.instance.id);
 		const hooks = await injectClaudeHooks(target, settings);
 		log(
 			hooks.ok

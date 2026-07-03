@@ -40,11 +40,13 @@ describe('injection registry', () => {
 
 describe('attentionHookSettings', () => {
 	test('emits valid Claude settings JSON with the three lifecycle hooks', () => {
-		const json = attentionHookSettings('inst-123', 'tok-abc');
+		const json = attentionHookSettings('inst-123');
 		const parsed = JSON.parse(json) as { hooks: Record<string, unknown> };
 		expect(Object.keys(parsed.hooks).sort()).toEqual(['Notification', 'Stop', 'UserPromptSubmit']);
-		// The instance id and token must reach the curl command so the bridge can route + auth it.
+		// The instance id must reach the curl command so the bridge can route it.
 		expect(json).toContain('inst-123');
-		expect(json).toContain('tok-abc');
+		// The token must NOT be baked into settings.json — the hooks read it from a
+		// mode-600 header file at runtime, keeping it off curl's argv (and out of ps).
+		expect(json).toContain('.bridge-header');
 	});
 });

@@ -3,32 +3,14 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { getOption, setOption } from './db.server';
+import { findDevcontainerConfig } from './devcontainer.server.ts';
+import type { BrowseResult, DirEntry } from '../types.ts';
 
 /** Options key under which the last browsed folder is persisted. */
 const LAST_VIEWED_FOLDER = 'last_viewed_folder';
 
-export interface DirEntry {
-	name: string;
-	path: string;
-	hasDevcontainer: boolean;
-}
-
-export interface BrowseResult {
-	/** Absolute path being listed. */
-	path: string;
-	/** Whether `path` itself contains a devcontainer.json. */
-	hasDevcontainer: boolean;
-	/** Parent directory, or null when at the filesystem root. */
-	parent: string | null;
-	/** Subdirectories of `path`, sorted, hidden dirs excluded. */
-	entries: DirEntry[];
-}
-
 function hasDevcontainer(dir: string): boolean {
-	return (
-		existsSync(join(dir, '.devcontainer', 'devcontainer.json')) ||
-		existsSync(join(dir, '.devcontainer.json'))
-	);
+	return findDevcontainerConfig(dir) !== null;
 }
 
 /**

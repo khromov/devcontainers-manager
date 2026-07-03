@@ -24,7 +24,7 @@ interface GhCredentials {
  * binary, which transparently spans its storage backends (macOS Keychain,
  * encrypted file, or GH_TOKEN). Returns null when no token is available.
  */
-export async function readGhToken(): Promise<{ token: string; source: string } | null> {
+async function readGhToken(): Promise<{ token: string; source: string } | null> {
 	if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
 	const token = await spawnCapture(['gh', 'auth', 'token', '--hostname', GH_HOST]);
 	return token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;

@@ -127,6 +127,19 @@ describe('writeOverrideConfig terminal task + settings', () => {
 		expect(readDevcontainer().image).toBe('ships/own:1');
 	});
 
+	test('preserves string values containing ,} while still stripping real trailing commas', async () => {
+		mkdirSync(join(dir, '.devcontainer'), { recursive: true });
+		// The postCreateCommand value contains `,}` inside the string; the object also
+		// has a genuine trailing comma before `}`. The JSONC stripper must drop the
+		// real trailing comma without touching the one inside the string literal.
+		writeFileSync(
+			join(dir, '.devcontainer', 'devcontainer.json'),
+			'{\n  "image": "ships/own:1",\n  "postCreateCommand": "echo {a,}",\n}'
+		);
+		await writeOverrideConfig(dir, 8001);
+		expect(readDevcontainer().postCreateCommand).toBe('echo {a,}');
+	});
+
 	test('installs the Node + Claude Code features for the default config', async () => {
 		await writeOverrideConfig(dir, 8001);
 		const features = readDevcontainer().features;

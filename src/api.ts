@@ -44,12 +44,30 @@ export function apiPost<T = unknown>(
 	body?: unknown,
 	fallbackMessage?: string
 ): Promise<T> {
+	return apiJson<T>('POST', url, body, fallbackMessage);
+}
+
+/** Convenience for a JSON DELETE: sets the header and serializes `body` when given. */
+export function apiDelete<T = unknown>(
+	url: string,
+	body?: unknown,
+	fallbackMessage?: string
+): Promise<T> {
+	return apiJson<T>('DELETE', url, body, fallbackMessage);
+}
+
+function apiJson<T>(
+	method: 'POST' | 'DELETE',
+	url: string,
+	body: unknown,
+	fallbackMessage?: string
+): Promise<T> {
 	return apiFetch<T>(
 		url,
 		body === undefined
-			? { method: 'POST' }
+			? { method }
 			: {
-					method: 'POST',
+					method,
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(body)
 				},

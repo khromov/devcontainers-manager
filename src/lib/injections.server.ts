@@ -1,4 +1,5 @@
 import type { InstanceRow } from './db.server.ts';
+import type { ExecTarget } from './exec.server.ts';
 import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts';
 import { gitIdentity } from '../container-injections/git-identity.ts';
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
@@ -6,11 +7,12 @@ import { githubCredentials } from '../container-injections/github-credentials.ts
 import { attentionHooks } from '../container-injections/attention-hooks.ts';
 import { claudeSkipPermissions } from '../container-injections/claude-skip-permissions.ts';
 
-/** A running container an injection acts on, plus the instance row behind it. */
-export interface ContainerTarget {
-	containerId: string;
-	/** The container's exec user; falls back to `root` when unknown. */
-	remoteUser?: string | null;
+/**
+ * A running container an injection acts on, plus the instance row behind it.
+ * Extends `ExecTarget` so the `containerId`/`remoteUser` exec-user semantics have
+ * a single source of truth (see `execInContainer`).
+ */
+export interface ContainerTarget extends ExecTarget {
 	/** The full instance row — gives an injection its id and `bridge_token`. */
 	instance: InstanceRow;
 }

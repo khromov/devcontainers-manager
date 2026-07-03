@@ -42,6 +42,13 @@ export const BASIC_AUTH_USERNAME = process.env.BASIC_AUTH_USERNAME || 'admin';
 export const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
 
 /**
+ * Interface the server binds to. Defaults to loopback so an unprotected instance
+ * (no BASIC_AUTH_PASSWORD) isn't exposed to the LAN. Set HOST=0.0.0.0 to opt into
+ * binding all interfaces (e.g. remote access) — do so together with a password.
+ */
+export const HOST = process.env.HOST || '127.0.0.1';
+
+/**
  * Optional token overrides for credential injection. When set, the manager injects
  * this token into every container instead of discovering the host's credentials
  * (macOS Keychain / ~/.claude / `gh auth token`). Useful on servers/CI or to pin a

@@ -6,7 +6,7 @@
 	import StatusBadge from './StatusBadge.svelte';
 	import Skeleton from './Skeleton.svelte';
 	import { liveSocket, liveStream } from '../live.ts';
-	import { apiFetch } from '../api.ts';
+	import { apiPost, apiDelete } from '../api.ts';
 
 	let { id, injectionChecks = 0 }: { id: string; injectionChecks?: number } = $props();
 
@@ -74,13 +74,7 @@
 			portError = 'Enter a port number between 1 and 65535';
 			return;
 		}
-		const ok = await portAction(() =>
-			apiFetch(`/api/instances/${id}/ports`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ port })
-			})
-		);
+		const ok = await portAction(() => apiPost(`/api/instances/${id}/ports`, { port }));
 		if (ok) {
 			newPort = '';
 			pendingRebuild = true;
@@ -88,14 +82,12 @@
 	}
 
 	async function removePort(port: number) {
-		const ok = await portAction(() =>
-			apiFetch(`/api/instances/${id}/ports/${port}`, { method: 'DELETE' })
-		);
+		const ok = await portAction(() => apiDelete(`/api/instances/${id}/ports/${port}`));
 		if (ok) pendingRebuild = true;
 	}
 
 	async function restart() {
-		const ok = await portAction(() => apiFetch(`/api/instances/${id}/rebuild`, { method: 'POST' }));
+		const ok = await portAction(() => apiPost(`/api/instances/${id}/rebuild`));
 		if (ok) pendingRebuild = false;
 	}
 </script>

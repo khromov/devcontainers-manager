@@ -8,6 +8,8 @@ import {
 	devcontainerBin,
 	dockerEnv
 } from './config.server.ts';
+import { spawnCapture } from './spawn.server.ts';
+import type { PortForward } from '../types.ts';
 
 const CODE_SERVER_FEATURE = 'ghcr.io/coder/devcontainer-features/code-server:1';
 
@@ -71,12 +73,7 @@ const CODE_SERVER_LAUNCH =
 
 /** Whether the bundled @devcontainers/cli binary is runnable. */
 export async function devcontainerCliAvailable(): Promise<boolean> {
-	try {
-		const proc = Bun.spawn([devcontainerBin(), '--version'], { stdout: 'pipe', stderr: 'pipe' });
-		return (await proc.exited) === 0;
-	} catch {
-		return false;
-	}
+	return (await spawnCapture([devcontainerBin(), '--version'])) !== null;
 }
 
 /** Recursively copy a source folder into the instance workspace, skipping COPY_IGNORE dirs. */
@@ -95,6 +92,10 @@ function stripJsonc(input: string): string {
 	let inString = false;
 	let inLine = false;
 	let inBlock = false;
+	// Index in `out` of the last comma emitted outside a string, pending a
+	// possible drop. Tracked inline (not via a blind regex over the whole output)
+	// so commas inside string values — e.g. "echo {a,}" — are never touched.
+	let lastComma = -1;
 	for (let i = 0; i < input.length; i++) {
 		const ch = input[i];
 		const next = input[i + 1];
@@ -125,6 +126,7 @@ function stripJsonc(input: string): string {
 		if (ch === '"') {
 			inString = true;
 			out += ch;
+			lastComma = -1;
 			continue;
 		}
 		if (ch === '/' && next === '/') {
@@ -137,19 +139,46 @@ function stripJsonc(input: string): string {
 			i++;
 			continue;
 		}
+		if (ch === ',') {
+			out += ch;
+			lastComma = out.length - 1;
+			continue;
+		}
+		if (ch === '}' || ch === ']') {
+			// Drop a trailing comma sitting between here and the last value.
+			if (lastComma !== -1) {
+				out = out.slice(0, lastComma) + out.slice(lastComma + 1);
+				lastComma = -1;
+			}
+			out += ch;
+			continue;
+		}
 		out += ch;
+		// Any non-whitespace token other than a comma clears the pending comma;
+		// whitespace (and stripped comments) between a comma and its closer keep it.
+		if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r') lastComma = -1;
 	}
-	// Remove trailing commas before } or ].
-	return out.replace(/,(\s*[}\]])/g, '$1');
+	return out;
+}
+
+/**
+ * The devcontainer.json a folder already has, following the CLI's precedence
+ * (`.devcontainer/devcontainer.json`, then `.devcontainer.json`), or null if it
+ * has neither. Single source of truth for the "does this folder have a
+ * devcontainer config, and where" convention.
+ */
+export function findDevcontainerConfig(dir: string): string | null {
+	const nested = join(dir, '.devcontainer', 'devcontainer.json');
+	if (existsSync(nested)) return nested;
+	const flat = join(dir, '.devcontainer.json');
+	if (existsSync(flat)) return flat;
+	return null;
 }
 
 /** Find the devcontainer.json the CLI would use for a workspace folder. */
 function configPath(workspaceDir: string): string {
-	const nested = join(workspaceDir, '.devcontainer', 'devcontainer.json');
-	if (existsSync(nested)) return nested;
-	const flat = join(workspaceDir, '.devcontainer.json');
-	if (existsSync(flat)) return flat;
-	return nested; // default location to create
+	// Default to the nested path when the folder has none — that's where we create it.
+	return findDevcontainerConfig(workspaceDir) ?? join(workspaceDir, '.devcontainer', 'devcontainer.json');
 }
 
 type DevcontainerConfig = {
@@ -201,12 +230,6 @@ export async function readDeclaredContainerPorts(workspaceDir: string): Promise<
 
 /** Maps `host.docker.internal` to the host so the in-container attention bridge resolves. */
 const HOST_GATEWAY_ARG = '--add-host=host.docker.internal:host-gateway';
-
-/** One published container→host port mapping injected into `appPort`. */
-export interface PortForward {
-	container_port: number;
-	host_port: number;
-}
 
 /**
  * Inject code-server + the published host ports into the copied workspace's devcontainer.json,

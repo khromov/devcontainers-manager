@@ -32,6 +32,40 @@ function csrfRejected(): Response {
 	return new Response('Forbidden', { status: 403 });
 }
 
+/**
+ * Cross-site WebSocket hijacking (CSWSH) guard. WS handshakes are plain GETs, so
+ * they slip past the mutating-method CSRF check above, and browsers attach cached
+ * Basic Auth credentials to *cross-origin* WS connections without a preflight — so
+ * a malicious page could otherwise open `/api/stream` (harvest instance ids/paths)
+ * or a proxied code-server socket and drive a terminal inside a credentialed
+ * container. Require the `Origin` to match the request `Host`. A missing `Origin`
+ * (non-browser client) is allowed — Basic Auth still applies to it.
+ */
+function wsOriginOk(request: Request): boolean {
+	const origin = request.headers.get('origin');
+	if (origin == null) return true;
+	try {
+		return new URL(origin).host === request.headers.get('host');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Whether a WebSocket upgrade may proceed: same-origin (CSWSH guard) *and*
+ * authenticated when a password is configured. Called from the `Mochi.ws` route
+ * `upgrade` callbacks (`/api/stream`, `/api/instances/:id/logs`) — those routes
+ * are dispatched by Bun directly and DON'T pass through the `basicAuth` handle, so
+ * they'd otherwise be wide open (an unauthenticated cross-origin upgrade succeeds).
+ * The browser attaches the page's cached Basic Auth to same-origin WS handshakes,
+ * so a legitimate client from the authenticated UI passes.
+ */
+export function wsUpgradeAllowed(request: Request): boolean {
+	if (!wsOriginOk(request)) return false;
+	if (!BASIC_AUTH_PASSWORD) return true;
+	return credentialsOk(request.headers.get('Authorization'));
+}
+
 /** Validate an `Authorization: Basic <base64>` header against the configured creds. */
 function credentialsOk(header: string | null): boolean {
 	if (!header?.startsWith('Basic ')) return false;
@@ -72,6 +106,15 @@ export const basicAuth: Handle = async ({ event, resolve }) => {
 	// CSRF header; it authenticates with a per-instance token validated by the
 	// route itself, so it's exempt from both checks here.
 	if (path.startsWith('/api/bridge/')) return resolve(event);
+
+	// CSWSH guard — reject cross-origin WebSocket upgrades before auth. This handle
+	// only wraps page/api routes, so here it covers the `/p/:id/*` proxy relay (an
+	// api route). The `Mochi.ws` routes (/api/stream, /api/instances/:id/logs)
+	// bypass this handle entirely and enforce `wsUpgradeAllowed` in their own
+	// `upgrade` callbacks instead.
+	if (event.request.headers.get('upgrade')?.toLowerCase() === 'websocket' && !wsOriginOk(event.request)) {
+		return csrfRejected();
+	}
 
 	// CSRF guard — scoped to /api/ so it never touches the code-server proxy
 	// (/p/:id/*), which has its own request shapes the editor itself generates.

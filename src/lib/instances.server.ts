@@ -41,6 +41,7 @@ import {
 	writeOverrideConfig
 } from './devcontainer.server.ts';
 import { clearAttention, getAttention } from './bridge.server.ts';
+import { proxyPathFor } from './proxy.server.ts';
 import { injections } from './injections.server.ts';
 import { readGitBranch } from './git.server.ts';
 import { currentHealthSnapshots, stopHealthMonitor, syncHealthMonitors } from './health.server.ts';
@@ -94,6 +95,9 @@ function appendLog(id: string, chunk: string): void {
 
 /** Replay buffered logs and stream future ones; returns an unsubscribe fn. */
 export function subscribeLogs(id: string, onChunk: (chunk: string) => void): () => void {
+	// Never materialize a registry entry for an id that was never booted and isn't
+	// a known instance — otherwise an unknown id could grow the registry unbounded.
+	if (!registry.has(id) && !getInstance(id)) return () => {};
 	const state = live(id);
 	for (const line of state.logs) onChunk(line);
 	state.subscribers.add(onChunk);
@@ -275,6 +279,14 @@ async function assertDir(path: string): Promise<void> {
 	if (!info.isDirectory()) throw new Error(`Not a folder: ${path}`);
 }
 
+/** Mark an instance failed: persist the error, log it, and re-broadcast the list. */
+function failInstance(id: string, err: unknown): void {
+	const message = (err as Error).message;
+	updateInstance(id, { status: 'error', error: message });
+	appendLog(id, `\n✗ Error: ${message}\n`);
+	triggerReconcile();
+}
+
 /** Drive the first boot: copy workspace → seed declared ports → provision the container. */
 async function boot(row: InstanceRow): Promise<void> {
 	try {
@@ -282,10 +294,7 @@ async function boot(row: InstanceRow): Promise<void> {
 		await copyWorkspace(row.source_path, row.workspace_path);
 		await seedDeclaredPorts(row);
 	} catch (err) {
-		const message = (err as Error).message;
-		updateInstance(row.id, { status: 'error', error: message });
-		appendLog(row.id, `\n✗ Error: ${message}\n`);
-		triggerReconcile();
+		failInstance(row.id, err);
 		return;
 	}
 	await provision(row);
@@ -367,21 +376,23 @@ async function provision(row: InstanceRow): Promise<void> {
 			}
 		}
 
-		appendLog(row.id, `\n✓ Instance running — open it via the proxy at /p/${row.id}/\n`);
+		appendLog(row.id, `\n✓ Instance running — open it via the proxy at ${proxyPathFor(row.id)}\n`);
+		triggerReconcile();
 	} catch (err) {
-		const message = (err as Error).message;
-		updateInstance(row.id, { status: 'error', error: message });
-		appendLog(row.id, `\n✗ Error: ${message}\n`);
+		failInstance(row.id, err);
 	}
-	triggerReconcile();
 }
 
 /**
  * Make `desired` unique against existing instance names by appending a
  * `#2`, `#3`, … suffix. The first instance keeps the bare name.
  */
-function uniqueName(desired: string): string {
-	const taken = new Set(allInstances().map((row) => row.name));
+function uniqueName(desired: string, excludeId?: string): string {
+	const taken = new Set(
+		allInstances()
+			.filter((row) => row.id !== excludeId)
+			.map((row) => row.name)
+	);
 	if (!taken.has(desired)) return desired;
 	for (let n = 2; ; n++) {
 		const candidate = `${desired} #${n}`;
@@ -473,7 +484,8 @@ export function renameInstance(id: string, name: string): InstanceRow {
 	if (!row) throw new Error('Instance not found');
 	const trimmed = name.trim();
 	if (!trimmed) throw new Error('Name cannot be empty');
-	updateInstance(id, { name: trimmed });
+	const unique = trimmed === row.name ? trimmed : uniqueName(trimmed, id);
+	updateInstance(id, { name: unique });
 	triggerReconcile();
 	return getInstance(id)!;
 }
@@ -542,8 +554,11 @@ export async function startInstance(id: string): Promise<InstanceRow> {
 export async function stopInstance(id: string): Promise<InstanceRow> {
 	const row = getInstance(id);
 	if (!row) throw new Error('Instance not found');
-	if (row.container_id) await stopContainer(row.container_id);
-	updateInstance(id, { status: 'stopped' });
+	const ok = row.container_id ? await stopContainer(row.container_id) : true;
+	updateInstance(id, {
+		status: ok ? 'stopped' : 'error',
+		error: ok ? null : 'Failed to stop container'
+	});
 	clearAttention(id);
 	triggerReconcile();
 	return getInstance(id)!;

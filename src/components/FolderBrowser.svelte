@@ -6,7 +6,7 @@
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Folder from '@lucide/svelte/icons/folder';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
-	import { apiFetch } from '../api.ts';
+	import { apiFetch, apiDelete } from '../api.ts';
 
 	let { onpick, onclose }: { onpick: (path: string) => void; onclose: () => void } = $props();
 
@@ -39,11 +39,7 @@
 		const prev = history;
 		history = history.filter((h) => h.source_path !== path);
 		try {
-			await apiFetch('/api/history', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ sourcePath: path })
-			});
+			await apiDelete('/api/history', { sourcePath: path });
 		} catch {
 			history = prev; // restore on failure (network error, or a non-2xx response)
 		}

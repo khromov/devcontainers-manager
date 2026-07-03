@@ -35,6 +35,7 @@ import {
 	setOption
 } from './lib/db.server.ts';
 import { DEFAULT_IMAGE } from './lib/config.server.ts';
+import { wsUpgradeAllowed } from './lib/auth.server.ts';
 import { clearAttention, setAttention } from './lib/bridge.server.ts';
 import { timingSafeEqualStr } from './lib/crypto.server.ts';
 import { proxyRoutes } from './lib/proxy.server.ts';
@@ -158,6 +159,8 @@ export const routes: Record<string, MochiRouteValue> = {
 	// reconciled instance list and continuous per-instance health. A fresh socket
 	// is seeded with the current state. Clients filter by event `type`.
 	'/api/stream': Mochi.ws({
+		// Mochi.ws routes bypass the global basicAuth handle, so enforce origin + auth here.
+		upgrade: (req) => (wsUpgradeAllowed(req) ? {} : false),
 		open: streamOpen,
 		message: () => {},
 		close: streamClose
@@ -278,7 +281,8 @@ export const routes: Record<string, MochiRouteValue> = {
 	// Live boot/build log stream for one instance (WebSocket). Replays the buffer
 	// then streams new chunks as raw text — WS frames tolerate embedded newlines.
 	'/api/instances/:id/logs': Mochi.ws<{ id: string; unsub?: () => void }>({
-		upgrade: (_req, params) => (params.id ? { id: params.id } : false),
+		upgrade: (req, params) =>
+			wsUpgradeAllowed(req) && params.id && getInstance(params.id) ? { id: params.id } : false,
 		open(ws) {
 			ws.data.user.unsub = subscribeLogs(ws.data.user.id, (chunk) => {
 				try {

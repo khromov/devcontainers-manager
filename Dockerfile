@@ -3,6 +3,7 @@ WORKDIR /app
 
 COPY package.json bun.lock* ./
 COPY patches ./patches
+COPY vendor ./vendor
 RUN bun install --production
 
 COPY . .
