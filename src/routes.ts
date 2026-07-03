@@ -6,7 +6,7 @@ import {
 	type MochiApiEvent,
 	type MochiRouteValue
 } from 'mochi-framework';
-import { dockerArch, dockerAvailable } from './lib/docker.server.ts';
+import { dockerArch, dockerAvailable, pruneBuildCache } from './lib/docker.server.ts';
 import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
 import { injections } from './lib/injections.server.ts';
 import { browse } from './lib/picker.server.ts';
@@ -18,6 +18,7 @@ import {
 	deleteInstance,
 	listInstances,
 	rebuildInstance,
+	rebuildRunningInstancesNoCache,
 	removeForwardedPort,
 	renameInstance,
 	sanitizeInstance,
@@ -133,6 +134,7 @@ export const routes: Record<string, MochiRouteValue> = {
 		serverProps: async () => ({
 			defaultImage: getOption('default_image') ?? DEFAULT_IMAGE,
 			builtinImage: DEFAULT_IMAGE,
+			disableBuildCache: getOption('disable_build_cache') === '1',
 			dockerArch: await dockerArch()
 		})
 	}),
@@ -145,6 +147,25 @@ export const routes: Record<string, MochiRouteValue> = {
 		setOption('default_image', image);
 		return { ok: true };
 	}),
+
+	// Global "disable build cache" flag: when on, every build (first boot + rebuild)
+	// passes --build-no-cache. Stored in the options table like default_image.
+	'/api/settings/disable-build-cache': mutationRoute('POST', async ({ request }) => {
+		const body = (await request.json().catch(() => null)) as { enabled?: boolean } | null;
+		if (typeof body?.enabled !== 'boolean') throw new Error('enabled (boolean) is required');
+		setOption('disable_build_cache', body.enabled ? '1' : '0');
+		return { ok: true };
+	}),
+
+	// Clear BuildKit's build cache so the next build runs uncached. Returns bytes freed.
+	'/api/settings/clear-build-cache': mutationRoute('POST', async () => {
+		return await pruneBuildCache();
+	}),
+
+	// Rebuild every currently-running instance from scratch (no build cache).
+	'/api/instances/rebuild-all-no-cache': mutationRoute('POST', () => ({
+		count: rebuildRunningInstancesNoCache()
+	})),
 
 	// Filesystem browser for picking a project folder.
 	'/api/browse': Mochi.api(async ({ url }) => {

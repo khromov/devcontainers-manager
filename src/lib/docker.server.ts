@@ -72,6 +72,28 @@ export async function publishedContainerPorts(containerId: string): Promise<numb
 	return [...open];
 }
 
+/**
+ * Purge BuildKit's build cache (the layer cache `devcontainer up` reuses), so the
+ * next build runs uncached. Hits `POST /build/prune?all=true` via the raw modem —
+ * dockerode has no dedicated helper for it. Returns the bytes reclaimed. Does not
+ * touch pulled images, so other instances' base images stay put.
+ */
+export async function pruneBuildCache(): Promise<{ spaceReclaimed: number }> {
+	const docker = await getDocker();
+	const data = await new Promise<{ SpaceReclaimed?: number } | undefined>((resolve, reject) =>
+		docker.modem.dial(
+			{
+				path: '/build/prune?all=true',
+				method: 'POST',
+				statusCodes: { 200: true, 500: 'server error' }
+			},
+			(err: unknown, res: unknown) =>
+				err ? reject(err) : resolve(res as { SpaceReclaimed?: number } | undefined)
+		)
+	);
+	return { spaceReclaimed: data?.SpaceReclaimed ?? 0 };
+}
+
 export async function startContainer(containerId: string): Promise<boolean> {
 	try {
 		await (await getDocker()).getContainer(containerId).start();

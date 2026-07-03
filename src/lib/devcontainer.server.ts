@@ -371,12 +371,25 @@ export interface UpResult {
  */
 export async function devcontainerUp(
 	workspaceDir: string,
-	onLog: (chunk: string) => void
+	onLog: (chunk: string) => void,
+	opts: { noCache?: boolean } = {}
 ): Promise<UpResult> {
-	const proc = Bun.spawn(
-		[devcontainerBin(), 'up', '--workspace-folder', workspaceDir, '--remove-existing-container'],
-		{ cwd: workspaceDir, stdout: 'pipe', stderr: 'pipe', env: dockerEnv() }
-	);
+	const args = [
+		devcontainerBin(),
+		'up',
+		'--workspace-folder',
+		workspaceDir,
+		'--remove-existing-container'
+	];
+	// Force a fresh image build (no BuildKit layer cache). Takes effect because we
+	// pass --remove-existing-container: the container is gone before the build runs.
+	if (opts.noCache) args.push('--build-no-cache');
+	const proc = Bun.spawn(args, {
+		cwd: workspaceDir,
+		stdout: 'pipe',
+		stderr: 'pipe',
+		env: dockerEnv()
+	});
 
 	let stdoutText = '';
 	const pump = async (stream: ReadableStream<Uint8Array>, capture: boolean) => {
