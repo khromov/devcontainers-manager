@@ -7,6 +7,7 @@
 	import { playChime, unlockAudio } from '../sound.ts';
 	import { liveStream } from '../live.ts';
 	import { apiPost } from '../api.ts';
+	import toast, { Toaster } from 'svelte-french-toast';
 
 	// `initialPath` is the URL the document was served for; `snapshot` is the
 	// reconciled instance list at render time, used to seed the live state so both
@@ -62,7 +63,7 @@
 			await apiPost(`/api/instances/${id}/rename`, { name }, 'Failed to rename');
 			// The SSE stream reflects the new name.
 		} catch (err) {
-			console.error('Failed to rename', err);
+			toast.error((err as Error).message);
 		}
 	}
 
@@ -250,6 +251,16 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Hoisted here (rather than DashboardView) so it stays mounted across both
+     routes — toasts raised from the IDE tab bar (e.g. a failed rename) need
+     somewhere to render too. -->
+<Toaster
+	toastOptions={{
+		style:
+			'border:1px solid var(--ink); background:var(--bg-card); color:var(--ink); box-shadow:4px 4px 0 var(--ink); font-family:var(--font-mono); font-size:13px;'
+	}}
+/>
 
 <style>
 	/* On the IDE route the app is a fixed-height column (bar + panes fill the
