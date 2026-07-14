@@ -5,7 +5,6 @@
 	import TopBar from './TopBar.svelte';
 	import Button from './Button.svelte';
 	import Plus from '@lucide/svelte/icons/plus';
-	import { Toaster } from 'svelte-french-toast';
 	import { apiPost } from '../api.ts';
 
 	// Instances and their load state come from the persistent AppShell (single SSE
@@ -141,13 +140,6 @@
 {#if browserOpen}
 	<FolderBrowser onpick={createFrom} onclose={() => (browserOpen = false)} />
 {/if}
-
-<Toaster
-	toastOptions={{
-		style:
-			'border:1px solid var(--ink); background:var(--bg-card); color:var(--ink); box-shadow:4px 4px 0 var(--ink); font-family:var(--font-mono); font-size:13px;'
-	}}
-/>
 
 <style>
 	.stage {
