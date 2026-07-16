@@ -65,6 +65,26 @@ up as siblings on the host. A multi-arch image is published to GHCR:
 docker pull ghcr.io/khromov/codebay:latest
 ```
 
+### Build and run from the Dockerfile
+
+To build the image yourself instead of pulling:
+
+1. Build it (vendors mochi and produces a production build — no local Bun needed):
+   ```sh
+   docker build -t codebay .
+   ```
+2. Point compose at your local image by editing `docker-compose.yml` — replace the
+   `image:` line with `build: .` (or set `image: codebay`).
+3. Start it:
+   ```sh
+   export BASIC_AUTH_PASSWORD=change-me
+   export CODEBAY_DATA_DIR=/opt/codebay && mkdir -p "$CODEBAY_DATA_DIR"
+   docker compose up -d
+   ```
+4. Open `http://localhost:3333` and log in as `admin` with that password.
+
+### Run the published image
+
 The easiest way to run it is the bundled [`docker-compose.yml`](./docker-compose.yml):
 
 ```sh
