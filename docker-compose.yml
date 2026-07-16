@@ -1,0 +1,20 @@
+services:
+  codebay:
+    image: ghcr.io/khromov/codebay:latest
+    container_name: codebay
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      DATA_DIR: ${CODEBAY_DATA_DIR:-/opt/codebay}
+      DOCKER_HOST: unix:///var/run/docker.sock
+      HOST: 0.0.0.0
+      PORT: ${PORT:-3333}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:?set BASIC_AUTH_PASSWORD — HOST is 0.0.0.0}
+      MOCHI_KEY: ${MOCHI_KEY:-}
+      CODEBAY_GITHUB_TOKEN: ${CODEBAY_GITHUB_TOKEN:-}
+      CODEBAY_CLAUDE_CODE_TOKEN: ${CODEBAY_CLAUDE_CODE_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CODEBAY_DATA_DIR:-/opt/codebay}:${CODEBAY_DATA_DIR:-/opt/codebay}
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+      - ${CODEBAY_PROJECTS_DIR:-${HOME}/projects}:${CODEBAY_PROJECTS_DIR:-${HOME}/projects}:ro

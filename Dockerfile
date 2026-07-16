@@ -1,14 +1,56 @@
-FROM oven/bun:1.3.14-alpine
+# syntax=docker/dockerfile:1
+#
+# Codebay as a Docker-out-of-Docker (DooD) container: the manager runs in this
+# image but drives the *host's* Docker daemon over a mounted socket, so the
+# devcontainers it spins up are siblings on the host. See docker-compose.yml and
+# the "Run with Docker" section in README.md for the run recipe (host networking
+# + a same-path DATA_DIR bind mount are both required).
+
+# ---- builder: vendor mochi, install deps, produce the production build ----
+FROM oven/bun:1.3.14-alpine AS builder
 WORKDIR /app
 
+# scripts/update-mochi.sh needs git + bash (mochi is a gitignored file: dep that
+# must be vendored at build time; it clones mochi's `main` — pin a ref later for
+# fully reproducible builds).
+RUN apk add --no-cache git bash
+
+# Install layer: only what `bun run update:mochi` (clone + bun install) needs, so
+# it caches independently of source changes. patches/ is required because
+# package.json declares a patchedDependency applied during install.
 COPY package.json bun.lock* ./
 COPY patches ./patches
-COPY vendor ./vendor
-RUN bun install --production
+COPY scripts ./scripts
+RUN bun run update:mochi
 
+# Build layer: the rest of the source, then the production SSR/client build.
 COPY . .
 RUN bun run build
 
-ENV PORT=3333
+# ---- runtime: slim image with the CLIs the manager shells out to ----
+FROM oven/bun:1.3.14-alpine
+WORKDIR /app
+
+# Runtime tools the manager invokes as subprocesses:
+#   docker-cli   — @devcontainers/cli and `docker context inspect` both need it
+#   nodejs       — node_modules/.bin/devcontainer has a `#!/usr/bin/env node` shebang (Bun can't run it)
+#   git          — workspace/.git handling + reads the host global gitconfig
+#   github-cli   — `gh auth token` fallback when CODEBAY_GITHUB_TOKEN is unset
+RUN apk add --no-cache docker-cli git github-cli nodejs openssh-client ca-certificates bash
+
+COPY --from=builder /app /app
+
+# Run as root so the mounted /var/run/docker.sock is accessible regardless of the
+# host socket's gid. (Tradeoff: root in the container has full control of the host
+# daemon — expected for a Docker-management tool, but keep it on a trusted host.)
+USER root
+
+# HOST=0.0.0.0 is required, not just for LAN access: the code-server containers
+# reach the manager's attention bridge via host.docker.internal → host-gateway,
+# which a 127.0.0.1-only listener would never answer. Always set BASIC_AUTH_PASSWORD.
+ENV PORT=3333 \
+    HOST=0.0.0.0 \
+    NODE_ENV=production
+
 EXPOSE 3333
 CMD ["bun", "run", "start"]
