@@ -55,12 +55,64 @@ bun run typecheck # svelte-check + tsc --noEmit
 bun test # run tests
 \`\`\`
 
+## Run with Docker
+
+Instead of running from source you can run the manager itself as a container that
+drives your **host's** Docker daemon (Docker-out-of-Docker) — it spins the devcontainers
+up as siblings on the host. A multi-arch image is published to GHCR:
+
+```sh
+docker pull ghcr.io/khromov/codebay:latest
+```
+
+The easiest way to run it is the bundled [`docker-compose.yml`](./docker-compose.yml):
+
+```sh
+export BASIC_AUTH_PASSWORD=change-me
+export CODEBAY_DATA_DIR=/opt/codebay        # Linux; on Mac use a path under $HOME (see below)
+export CODEBAY_GITHUB_TOKEN=$(gh auth token)
+export CODEBAY_CLAUDE_CODE_TOKEN=$(claude setup-token)   # optional
+mkdir -p "$CODEBAY_DATA_DIR"
+docker compose up -d
+```
+
+Or the equivalent raw `docker run`:
+
+```sh
+docker run -d --name codebay --network host \
+  -e BASIC_AUTH_PASSWORD=change-me \
+  -e DATA_DIR=/opt/codebay \
+  -e DOCKER_HOST=unix:///var/run/docker.sock \
+  -e CODEBAY_GITHUB_TOKEN="$(gh auth token)" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /opt/codebay:/opt/codebay \
+  -v "$HOME/.gitconfig:/root/.gitconfig:ro" \
+  -v "$HOME/projects:$HOME/projects:ro" \
+  ghcr.io/khromov/codebay:latest
+```
+
+Two things are load-bearing:
+
+- **`--network host`** — so the manager's in-app proxy (`127.0.0.1:<port>`) and the
+  attention bridge (containers → `host.docker.internal`) reach the code-server instances.
+  With host networking, `HOST=0.0.0.0` is required, so **always set `BASIC_AUTH_PASSWORD`**.
+- **`DATA_DIR` at an identical host↔container path** — `devcontainer up` bind-mounts the
+  copied workspace, and the daemon resolves that path on the host. The bind mount must map
+  the same absolute path on both sides (`/opt/codebay:/opt/codebay`), and `DATA_DIR` must
+  point at it.
+
+**Linux vs. Mac:** on a Linux host with a native daemon, any `DATA_DIR` path works.
+On **Docker Desktop / Colima** (Mac) the daemon runs in a VM that only sees auto-mounted
+host paths, so put `CODEBAY_DATA_DIR` **under `$HOME`** (e.g. `$HOME/.codebay`); also note
+`--network host` binds to the VM, so reach the UI via the VM rather than `localhost`.
+
 ## Configuration
 
 - `PORT` — server port (default `3333`)
 - `DATA_DIR` — where state lives (default `~/.codebay`)
 - `DOCKER_HOST` — Docker daemon socket/URL to connect to (e.g. `unix://$HOME/.colima/default/docker.sock` or `tcp://1.2.3.4:2375`); defaults to your active Docker context
 - `BASIC_AUTH_PASSWORD` — enables HTTP Basic Auth over the whole UI (disabled when unset)
+- `MOCHI_KEY` — base64url-encoded 32-byte secret; set it for persistent deployments so signed image URLs and island props survive restarts (a random key is generated when unset)
 - `CODEBAY_CLAUDE_CODE_TOKEN` — inject this Claude Code OAuth token into every container instead of discovering the host's credentials (e.g. from `claude setup-token`)
 - `CODEBAY_GITHUB_TOKEN` — inject this GitHub token into every container instead of reading `gh auth token` from the host
 - `DISABLE_OPEN_BROWSER=1` — skip opening the browser on startup

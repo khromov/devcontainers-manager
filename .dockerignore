@@ -1,6 +1,10 @@
 node_modules
+vendor
 .git
 .mochi
+.codebay
+.test-data
 Dockerfile
 .dockerignore
+docker-compose.yml
 *.log
