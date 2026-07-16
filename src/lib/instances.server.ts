@@ -68,8 +68,8 @@ interface LiveState {
 	subscribers: Set<(chunk: string) => void>;
 }
 
-const globalForReg = globalThis as unknown as { __dcmRegistry?: Map<string, LiveState> };
-const registry: Map<string, LiveState> = (globalForReg.__dcmRegistry ??= new Map());
+const globalForReg = globalThis as unknown as { __codebayRegistry?: Map<string, LiveState> };
+const registry: Map<string, LiveState> = (globalForReg.__codebayRegistry ??= new Map());
 
 function live(id: string): LiveState {
 	let state = registry.get(id);
@@ -125,8 +125,8 @@ interface StreamHub {
 	lastPreflightJson: string;
 }
 
-const globalForHub = globalThis as unknown as { __dcmHub?: StreamHub };
-const hub: StreamHub = (globalForHub.__dcmHub ??= {
+const globalForHub = globalThis as unknown as { __codebayHub?: StreamHub };
+const hub: StreamHub = (globalForHub.__codebayHub ??= {
 	sockets: new Set(),
 	timer: null,
 	lastListJson: '',
@@ -248,8 +248,8 @@ export function streamClose(ws: ServerWebSocket<unknown>): void {
 // than the TTL: far longer than any real allocate→insert gap, but a hard backstop
 // against leaking the range on a failed insert.
 const RESERVATION_TTL_MS = 60_000;
-const globalForPorts = globalThis as unknown as { __dcmReservedPorts?: Map<number, number> };
-const reservedPorts: Map<number, number> = (globalForPorts.__dcmReservedPorts ??= new Map());
+const globalForPorts = globalThis as unknown as { __codebayReservedPorts?: Map<number, number> };
+const reservedPorts: Map<number, number> = (globalForPorts.__codebayReservedPorts ??= new Map());
 
 function allocatePort(): number {
 	const dbPorts = new Set(usedPorts());

@@ -1,5 +1,5 @@
 .mochi/
-.devcontainers-manager/
+.codebay/
 vendor/
 node_modules/
 public/

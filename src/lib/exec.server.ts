@@ -22,9 +22,9 @@ function collector(): { stream: Writable; text: () => string } {
 }
 
 /** Env var the exec carries the stdin secret in (see `wrapWithStdin`). */
-const STDIN_ENV = '__DCM_EXEC_STDIN';
+const STDIN_ENV = '__CODEBAY_EXEC_STDIN';
 /** Non-exported shell var the wrapped script reads the secret from. */
-const STDIN_VAR = 'DCM_STDIN';
+const STDIN_VAR = 'CODEBAY_STDIN';
 
 /**
  * Expose `stdin` to the script as a scrubbed shell variable rather than the exec's
@@ -35,8 +35,8 @@ const STDIN_VAR = 'DCM_STDIN';
  * needs full-duplex client HTTP (writing the request body while reading the response),
  * which Bun's client also lacks. So the secret travels in the exec's `Env` (not argv —
  * it never shows up in `ps`); we copy it into a plain, non-exported shell variable
- * (`$DCM_STDIN`) and `unset` the exported carrier, so the script's child processes never
- * inherit the secret either. Scripts read `"$DCM_STDIN"` instead of stdin.
+ * (`$CODEBAY_STDIN`) and `unset` the exported carrier, so the script's child processes never
+ * inherit the secret either. Scripts read `"$CODEBAY_STDIN"` instead of stdin.
  */
 function wrapWithStdin(script: string): string {
 	return `${STDIN_VAR}="$${STDIN_ENV}"; unset ${STDIN_ENV}\n${script}`;
@@ -48,7 +48,7 @@ function wrapWithStdin(script: string): string {
  * container injection's `apply()`/`check()` goes through it. Runs over the Docker
  * Engine API (dockerode), no `docker exec` shell-out.
  *
- * Secrets are passed via `stdin` and read from the scrubbed `$DCM_STDIN` shell var in
+ * Secrets are passed via `stdin` and read from the scrubbed `$CODEBAY_STDIN` shell var in
  * the script, never on argv. Extra `args` are appended after the script and appear as `$0`, `$1`, …
  * inside it (used to pass non-secret context). Set `capture` to read stdout back;
  * stderr is always captured for error reporting.
@@ -111,7 +111,7 @@ export async function checkPresence(
 
 /**
  * Shell snippet that ensures `dirExpr` exists and writes the scrubbed
- * `$DCM_STDIN` secret to `dirExpr/filename`, then chmods it. Shared by
+ * `$CODEBAY_STDIN` secret to `dirExpr/filename`, then chmods it. Shared by
  * injections that stage a single secret-only file (e.g. Claude Code's
  * `.credentials.json`) — must be run via `execInContainer` with `stdin` set.
  * Injections that combine the secret with non-secret content in one file
@@ -120,5 +120,5 @@ export async function checkPresence(
  */
 export function writeSecretFileScript(dirExpr: string, filename: string, mode = '600'): string {
 	const path = `${dirExpr}/${filename}`;
-	return `mkdir -p "${dirExpr}"; printf '%s' "$DCM_STDIN" > "${path}"; chmod ${mode} "${path}";`;
+	return `mkdir -p "${dirExpr}"; printf '%s' "$CODEBAY_STDIN" > "${path}"; chmod ${mode} "${path}";`;
 }

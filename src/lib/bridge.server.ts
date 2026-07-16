@@ -10,9 +10,9 @@ export type AttentionState = 'done' | 'waiting';
 
 // Pin to globalThis so dev-mode hot reload doesn't drop pending signals.
 const globalForAttention = globalThis as unknown as {
-	__dcmAttention?: Map<string, AttentionState>;
+	__codebayAttention?: Map<string, AttentionState>;
 };
-const attention: Map<string, AttentionState> = (globalForAttention.__dcmAttention ??= new Map());
+const attention: Map<string, AttentionState> = (globalForAttention.__codebayAttention ??= new Map());
 
 export function getAttention(id: string): AttentionState | null {
 	return attention.get(id) ?? null;

@@ -1,6 +1,6 @@
 /** Client-side UI preferences, persisted in localStorage (SSR-safe no-ops on the server). */
 
-const SOUND_KEY = 'dcm.sound';
+const SOUND_KEY = 'codebay.sound';
 
 /** Whether the attention chime is enabled. Defaults to on unless explicitly turned off. */
 export function soundEnabled(): boolean {

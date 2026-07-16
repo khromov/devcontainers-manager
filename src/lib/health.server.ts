@@ -19,8 +19,8 @@ interface Monitor {
 }
 
 // Pin to globalThis so dev-mode hot reload doesn't orphan the interval timers.
-const globalForHealth = globalThis as unknown as { __dcmHealth?: Map<string, Monitor> };
-const monitors: Map<string, Monitor> = (globalForHealth.__dcmHealth ??= new Map());
+const globalForHealth = globalThis as unknown as { __codebayHealth?: Map<string, Monitor> };
+const monitors: Map<string, Monitor> = (globalForHealth.__codebayHealth ??= new Map());
 
 /** Probe whether code-server is answering on its published host port. */
 async function codeServerAccessible(port: number): Promise<boolean> {

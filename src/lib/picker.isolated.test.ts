@@ -7,14 +7,14 @@ import { join } from 'node:path';
 // Point the DB at a throwaway dir *before* importing anything that pulls in
 // db.server (config.server reads DATA_DIR at module-eval time, and db.server
 // opens the connection on import). picker.server imports db.server transitively.
-const dataDir = mkdtempSync(join(tmpdir(), 'dcm-picker-'));
+const dataDir = mkdtempSync(join(tmpdir(), 'codebay-picker-'));
 process.env.DATA_DIR = dataDir;
 
 const picker = await import('./picker.server.ts');
 const db = await import('./db.server.ts');
 
 // A real directory tree to browse into.
-const root = mkdtempSync(join(tmpdir(), 'dcm-browse-'));
+const root = mkdtempSync(join(tmpdir(), 'codebay-browse-'));
 const sub = join(root, 'project');
 mkdirSync(sub, { recursive: true });
 

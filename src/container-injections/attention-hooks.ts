@@ -77,7 +77,7 @@ export function attentionHookSettings(id: string): string {
 /**
  * Stage the per-instance bridge token into a mode-600 `.bridge-header` file (as a
  * full `X-Bridge-Token: <token>` header line) inside the container's Claude config
- * dir. The token travels via the scrubbed `$DCM_STDIN` exec var, never on argv.
+ * dir. The token travels via the scrubbed `$CODEBAY_STDIN` exec var, never on argv.
  */
 async function writeBridgeHeader(
 	target: ContainerTarget,
@@ -85,7 +85,7 @@ async function writeBridgeHeader(
 ): Promise<{ ok: boolean; error?: string }> {
 	const script =
 		'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
-		'f="$d/.bridge-header"; printf \'X-Bridge-Token: %s\\n\' "$DCM_STDIN" > "$f"; chmod 600 "$f"';
+		'f="$d/.bridge-header"; printf \'X-Bridge-Token: %s\\n\' "$CODEBAY_STDIN" > "$f"; chmod 600 "$f"';
 	const res = await execInContainer(target, { script, stdin: token });
 	return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
@@ -104,7 +104,7 @@ async function injectClaudeHooks(
 ): Promise<{ ok: boolean; error?: string }> {
 	const script =
 		'h=$(eval echo ~$(id -un)); d="${CLAUDE_CONFIG_DIR:-$h/.claude}"; mkdir -p "$d"; ' +
-		'f="$d/settings.json"; new="$DCM_STDIN"; ' +
+		'f="$d/settings.json"; new="$CODEBAY_STDIN"; ' +
 		'if command -v jq >/dev/null 2>&1 && [ -s "$f" ] && ' +
 		'merged=$(printf \'%s\' "$new" | jq -s \'.[0] * .[1]\' "$f" - 2>/dev/null); then ' +
 		'printf \'%s\' "$merged" > "$f"; else printf \'%s\' "$new" > "$f"; fi; ' +

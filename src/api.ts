@@ -9,7 +9,7 @@ interface ApiErrorBody {
  * forged cross-site request can't set a custom header, so this is what proves
  * a mutation actually came from this app's own frontend.
  */
-const APP_REQUEST_HEADER = 'X-Dcm-Request';
+const APP_REQUEST_HEADER = 'X-Codebay-Request';
 
 /**
  * Thin wrapper over `fetch` for the app's JSON API. Throws an `Error` carrying the

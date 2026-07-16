@@ -7,7 +7,7 @@ export default ts.config(
 	{
 		ignores: [
 			'.mochi/',
-			'.devcontainers-manager/',
+			'.codebay/',
 			'vendor/',
 			'node_modules/',
 			'public/',

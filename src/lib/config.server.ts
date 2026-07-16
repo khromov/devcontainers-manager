@@ -3,16 +3,16 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 /**
  * Root directory where all manager state (SQLite db + instance workspaces) lives.
- * Defaults to `~/.devcontainers-manager`, outside the project tree. Override with
+ * Defaults to `~/.codebay`, outside the project tree. Override with
  * the `DATA_DIR` env var; relative values are resolved against the current working
- * directory (e.g. `DATA_DIR=./.devcontainers-manager` keeps everything project-local
+ * directory (e.g. `DATA_DIR=./.codebay` keeps everything project-local
  * for development).
  */
 export const DATA_DIR = process.env.DATA_DIR
 	? isAbsolute(process.env.DATA_DIR)
 		? process.env.DATA_DIR
 		: resolve(process.cwd(), process.env.DATA_DIR)
-	: join(homedir(), '.devcontainers-manager');
+	: join(homedir(), '.codebay');
 
 /** Per-instance working copies live here: <INSTANCES_DIR>/<id>/workspace. */
 export const INSTANCES_DIR = join(DATA_DIR, 'instances');
@@ -70,9 +70,12 @@ export const TRUSTED_ORIGINS = (process.env.TRUSTED_ORIGINS || '')
  * (macOS Keychain / ~/.claude / `gh auth token`). Useful on servers/CI or to pin a
  * specific identity. A token entered in Settings ("Set tokens manually") takes
  * precedence over these env vars; see the two credential injections for the order.
+ * The legacy `DCM_*` names are still honored as a fallback.
  */
-export const CLAUDE_CODE_TOKEN = process.env.DCM_CLAUDE_CODE_TOKEN?.trim() || '';
-export const GITHUB_TOKEN = process.env.DCM_GITHUB_TOKEN?.trim() || '';
+export const CLAUDE_CODE_TOKEN =
+	(process.env.CODEBAY_CLAUDE_CODE_TOKEN ?? process.env.DCM_CLAUDE_CODE_TOKEN)?.trim() || '';
+export const GITHUB_TOKEN =
+	(process.env.CODEBAY_GITHUB_TOKEN ?? process.env.DCM_GITHUB_TOKEN)?.trim() || '';
 
 /**
  * Directories skipped when copying a source folder into an instance workspace.

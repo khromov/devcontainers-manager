@@ -43,7 +43,7 @@ async function locateClaudeCredentials(): Promise<{ creds: string; source: strin
 	}
 	if (CLAUDE_CODE_TOKEN) {
 		const creds = JSON.stringify({ claudeAiOauth: { accessToken: CLAUDE_CODE_TOKEN } });
-		return { creds, source: 'DCM_CLAUDE_CODE_TOKEN env var' };
+		return { creds, source: 'CODEBAY_CLAUDE_CODE_TOKEN env var' };
 	}
 
 	if (process.platform === 'darwin') {

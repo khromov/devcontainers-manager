@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { removeContainer } from './docker.server.ts';
 
 /**
- * `getDocker()` resolves a dockerode client pinned to `globalThis.__dcmDocker`.
+ * `getDocker()` resolves a dockerode client pinned to `globalThis.__codebayDocker`.
  * We seed that slot with a fake client so `removeContainer` runs against an
  * in-memory stub — no real daemon involved.
  */
-const g = globalThis as unknown as { __dcmDocker?: Promise<unknown> };
+const g = globalThis as unknown as { __codebayDocker?: Promise<unknown> };
 
 type Mount = { Type: string; Name?: string };
 type VolumeStub = { remove: (opts?: unknown) => Promise<unknown> };
@@ -47,13 +47,13 @@ function fakeDocker(opts: {
 		})
 	};
 
-	g.__dcmDocker = Promise.resolve(docker);
+	g.__codebayDocker = Promise.resolve(docker);
 	return calls;
 }
 
 describe('removeContainer', () => {
 	afterEach(() => {
-		g.__dcmDocker = undefined;
+		g.__codebayDocker = undefined;
 	});
 
 	test('removes the container with force + v (drops anonymous volumes)', async () => {

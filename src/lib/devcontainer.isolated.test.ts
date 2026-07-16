@@ -8,7 +8,7 @@ describe('readDeclaredContainerPorts', () => {
 	let dir: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), 'dcm-decl-'));
+		dir = mkdtempSync(join(tmpdir(), 'codebay-decl-'));
 		mkdirSync(join(dir, '.devcontainer'), { recursive: true });
 	});
 	afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -50,7 +50,7 @@ describe('writeOverrideConfig terminal task + settings', () => {
 	let dir: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), 'dcm-task-'));
+		dir = mkdtempSync(join(tmpdir(), 'codebay-task-'));
 	});
 	afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -71,7 +71,7 @@ describe('writeOverrideConfig terminal task + settings', () => {
 		await writeOverrideConfig(dir, 8001);
 		const terminal = readTasks().tasks.find((t: { label: string }) => t.label === 'Terminal');
 		// folderOpen re-fires on every load; the command no-ops after the first open.
-		expect(terminal.command).toContain('.dcm-terminal-launched');
+		expect(terminal.command).toContain('.codebay-terminal-launched');
 		expect(terminal.command).toContain('exit 0');
 	});
 
@@ -176,7 +176,7 @@ describe('writeOverrideConfig local git excludes', () => {
 	let dir: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), 'dcm-excl-'));
+		dir = mkdtempSync(join(tmpdir(), 'codebay-excl-'));
 	});
 	afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -187,7 +187,7 @@ describe('writeOverrideConfig local git excludes', () => {
 		mkdirSync(join(dir, '.git'), { recursive: true });
 		await writeOverrideConfig(dir, 8001);
 		const text = readExclude();
-		expect(text).toContain('# >>> devcontainers-manager (auto-generated) >>>');
+		expect(text).toContain('# >>> codebay (auto-generated) >>>');
 		expect(text).toContain('/.devcontainer/code-server-settings.json');
 		expect(text).toContain('/.devcontainer/devcontainer-lock.json');
 		expect(text).toContain('/.vscode/tasks.json');
@@ -197,7 +197,7 @@ describe('writeOverrideConfig local git excludes', () => {
 		mkdirSync(join(dir, '.git'), { recursive: true });
 		await writeOverrideConfig(dir, 8001);
 		await writeOverrideConfig(dir, 8001);
-		const markers = readExclude().match(/devcontainers-manager \(auto-generated\)/g) ?? [];
+		const markers = readExclude().match(/codebay \(auto-generated\)/g) ?? [];
 		expect(markers).toHaveLength(1);
 	});
 

@@ -3,5 +3,5 @@
 # test suite (vendor/ is gitignored but still on disk).
 root = "src"
 # Point DATA_DIR at a project-local dir before any test module loads, so a bare
-# `bun test` can't open (and pollute) the real ~/.devcontainers-manager DB.
+# `bun test` can't open (and pollute) the real ~/.codebay DB.
 preload = "./test-setup.ts"

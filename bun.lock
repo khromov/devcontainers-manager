@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "devcontainers-manager",
+      "name": "codebay",
       "dependencies": {
         "@devcontainers/cli": "^0.87.0",
         "@fontsource-variable/doto": "^5.2.10",

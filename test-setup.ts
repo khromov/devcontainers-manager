@@ -1,7 +1,7 @@
 // Preloaded before every test file (see bunfig.toml `[test].preload`).
 //
 // Guarantees tests never touch the real data dir. `config.server.ts` defaults an
-// unset DATA_DIR to `~/.devcontainers-manager` (the production DB), and
+// unset DATA_DIR to `~/.codebay` (the production DB), and
 // `db.server.ts` pins its SQLite handle to `globalThis` on first open — so under
 // a single-process `bun test`, whichever module opens the DB first fixes the path
 // for the whole run. Running this before any test module forces that path to a

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 // Point the DB at a throwaway dir *before* importing db.server (config.server reads
 // DATA_DIR at module-eval time, and db.server opens the connection on import).
-const dataDir = mkdtempSync(join(tmpdir(), 'dcm-db-'));
+const dataDir = mkdtempSync(join(tmpdir(), 'codebay-db-'));
 process.env.DATA_DIR = dataDir;
 
 // Type-only import is fully erased, so it doesn't evaluate db.server before DATA_DIR is set.

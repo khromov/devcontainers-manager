@@ -2,7 +2,7 @@ import type { Handle } from 'mochi-framework';
 import { BASIC_AUTH_PASSWORD, BASIC_AUTH_USERNAME } from './config.server.ts';
 import { timingSafeEqualStr } from './crypto.server.ts';
 
-const REALM = 'Devcontainers Manager';
+const REALM = 'Codebay';
 
 /** Methods that mutate state — the ones the CSRF guard below applies to. */
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -19,7 +19,7 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * doesn't defend against — the browser auto-attaches cached credentials to
  * same-realm requests regardless of which page triggered them.
  */
-const CSRF_HEADER = 'x-dcm-request';
+const CSRF_HEADER = 'x-codebay-request';
 
 function challenge(): Response {
 	return new Response('Authentication required', {

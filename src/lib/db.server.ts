@@ -44,7 +44,7 @@ export interface PortForwardRow {
 }
 
 // Pin the connection to globalThis so dev-mode hot reload doesn't reopen it.
-const globalForDb = globalThis as unknown as { __dcmDb?: Database };
+const globalForDb = globalThis as unknown as { __codebayDb?: Database };
 
 function open(): Database {
 	mkdirSync(DATA_DIR, { recursive: true });
@@ -54,12 +54,12 @@ function open(): Database {
 	return database;
 }
 
-export const db: Database = (globalForDb.__dcmDb ??= open());
+export const db: Database = (globalForDb.__codebayDb ??= open());
 
 /** Close the pinned SQLite connection (flushing WAL) and drop the global handle. */
 export function closeDb(): void {
-	globalForDb.__dcmDb?.close();
-	globalForDb.__dcmDb = undefined;
+	globalForDb.__codebayDb?.close();
+	globalForDb.__codebayDb = undefined;
 }
 
 export function insertInstance(row: InstanceRow): void {

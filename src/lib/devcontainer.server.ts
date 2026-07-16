@@ -39,8 +39,8 @@ const MANAGER_GIT_EXCLUDES = [
 ];
 
 /** Markers bounding the manager-owned block in .git/info/exclude, so it's replaceable across rebuilds. */
-const EXCLUDE_MARKER_START = '# >>> devcontainers-manager (auto-generated) >>>';
-const EXCLUDE_MARKER_END = '# <<< devcontainers-manager <<<';
+const EXCLUDE_MARKER_START = '# >>> codebay (auto-generated) >>>';
+const EXCLUDE_MARKER_END = '# <<< codebay <<<';
 
 /** Default code-server (VS Code) user settings: dark theme, no agent chat panel. */
 const CODE_SERVER_SETTINGS = {
@@ -77,7 +77,7 @@ const TERMINAL_TASK = {
 	label: 'Terminal',
 	type: 'shell',
 	command:
-		'MARK="$HOME/.dcm-terminal-launched"; [ -e "$MARK" ] && exit 0; touch "$MARK"; ' +
+		'MARK="$HOME/.codebay-terminal-launched"; [ -e "$MARK" ] && exit 0; touch "$MARK"; ' +
 		'claude --dangerously-skip-permissions; exec ${env:SHELL} -l',
 	presentation: { reveal: 'always', panel: 'shared', focus: true },
 	runOptions: { runOn: 'folderOpen' },

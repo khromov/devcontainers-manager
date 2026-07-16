@@ -31,14 +31,14 @@ interface GhCredentials {
 
 /**
  * Resolve the GitHub token to inject, plus a human-readable source for display.
- * An explicit `DCM_GITHUB_TOKEN` override wins; otherwise read it via the `gh`
+ * An explicit `CODEBAY_GITHUB_TOKEN` override wins; otherwise read it via the `gh`
  * binary, which transparently spans its storage backends (macOS Keychain,
  * encrypted file, or GH_TOKEN). Returns null when no token is available.
  */
 export async function readGhToken(): Promise<{ token: string; source: string } | null> {
 	const manual = manualGithubToken();
 	if (manual) return { token: manual, source: 'Settings — manual token' };
-	if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'DCM_GITHUB_TOKEN env var' };
+	if (GITHUB_TOKEN) return { token: GITHUB_TOKEN, source: 'CODEBAY_GITHUB_TOKEN env var' };
 	const token = await spawnCapture(['gh', 'auth', 'token', '--hostname', GH_HOST]);
 	return token ? { token, source: `GitHub CLI — ${GH_HOST}` } : null;
 }
@@ -82,12 +82,12 @@ async function injectGhCredentials(
 ): Promise<{ ok: boolean; error?: string }> {
 	const protocol = creds.gitProtocol || 'https';
 	// The hosts.yml header (everything but the token) is non-secret, so build it in
-	// JS and pass it via printf; only the token rides in over the scrubbed $DCM_STDIN var.
+	// JS and pass it via printf; only the token rides in over the scrubbed $CODEBAY_STDIN var.
 	const header =
 		`${GH_HOST}:\n    git_protocol: ${protocol}\n` +
 		(creds.user ? `    user: ${creds.user}\n` : '');
 	const script =
-		'set -e; d=~/.config/gh; mkdir -p "$d"; tok="$DCM_STDIN"; ' +
+		'set -e; d=~/.config/gh; mkdir -p "$d"; tok="$CODEBAY_STDIN"; ' +
 		`{ printf '%s' "$1"; printf '    oauth_token: %s\\n' "$tok"; } > "$d/hosts.yml"; ` +
 		'chmod 600 "$d/hosts.yml"; ' +
 		`command -v gh >/dev/null 2>&1 && gh auth setup-git --hostname ${GH_HOST} 2>/dev/null || true`;

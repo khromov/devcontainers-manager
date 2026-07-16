@@ -11,7 +11,7 @@ export const PROXY_PREFIX = '/p';
  * dispatcher routes their open/message/close to the relay registered here. The
  * two must match. Clients never hit this path directly.
  */
-const PROXY_WS_PATTERN = '/__dcm_proxy_ws';
+const PROXY_WS_PATTERN = '/__codebay_proxy_ws';
 
 /** Same-origin path that loads an instance's IDE through the proxy. */
 export function proxyPathFor(id: string): string {

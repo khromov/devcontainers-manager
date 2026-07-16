@@ -3,13 +3,15 @@
 </script>
 
 <a class="brand" href="/"
-	><span class="logo"><Package size={22} /></span><span>Devcontainers Manager</span></a
+	><span class="logo"><Package size={22} /></span><span>Codebay</span><span class="tagline"
+		>devcontainer manager</span
+	></a
 >
 
 <style>
 	.brand {
 		display: inline-flex;
-		align-items: center;
+		align-items: baseline;
 		gap: 11px;
 		font-family: var(--font-display);
 		font-weight: 700;
@@ -22,5 +24,17 @@
 	.logo {
 		display: inline-flex;
 		align-items: center;
+		align-self: center;
+	}
+	.tagline {
+		font-size: 12px;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		opacity: 0.55;
+	}
+	@media (max-width: 640px) {
+		.tagline {
+			display: none;
+		}
 	}
 </style>

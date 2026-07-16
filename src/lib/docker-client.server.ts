@@ -19,10 +19,10 @@ import { spawnCapture } from './spawn.server.ts';
  * exists purely for connection discovery — never for an actual Docker operation.
  */
 
-const g = globalThis as unknown as { __dcmDocker?: Promise<Docker> };
+const g = globalThis as unknown as { __codebayDocker?: Promise<Docker> };
 
 export function getDocker(): Promise<Docker> {
-	return (g.__dcmDocker ??= resolveDocker());
+	return (g.__codebayDocker ??= resolveDocker());
 }
 
 /**
@@ -33,7 +33,7 @@ export function getDocker(): Promise<Docker> {
  * client keeps targeting a now-dead socket for the whole process lifetime.
  */
 export function resetDocker(): void {
-	g.__dcmDocker = undefined;
+	g.__codebayDocker = undefined;
 }
 
 async function resolveDocker(): Promise<Docker> {
