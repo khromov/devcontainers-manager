@@ -4,6 +4,8 @@
 	import Power from '@lucide/svelte/icons/power';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
+	import SunMoon from '@lucide/svelte/icons/sun-moon';
+	import ThemePicker from './ThemePicker.svelte';
 	import Layers from '@lucide/svelte/icons/layers';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Hammer from '@lucide/svelte/icons/hammer';
@@ -460,6 +462,21 @@
 					{/if}
 				</form>
 			{/if}
+		</section>
+
+		<section class="card">
+			<div class="row">
+				<div class="label">
+					<SunMoon size={18} />
+					<div class="text">
+						<div class="name">Theme</div>
+						<div class="desc">
+							Light, dark, or follow the browser preference automatically (auto).
+						</div>
+					</div>
+				</div>
+				<ThemePicker />
+			</div>
 		</section>
 
 		<section class="card">

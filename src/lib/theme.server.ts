@@ -1,9 +1,9 @@
 import { getRequestContext, type Handle } from 'mochi-framework';
 
-/** Injects `data-theme="dark"` into the shell's `<html>` tag when the theme cookie says so. Light is the implicit default — an absent/unrecognized cookie leaves the HTML untouched. */
+/** Injects `data-theme="light"`/`data-theme="dark"` into the shell's `<html>` tag when the theme cookie holds an explicit choice. Auto is the implicit default — an absent/`auto`/unrecognized cookie leaves the HTML untouched, so the shell CSS follows the browser's `prefers-color-scheme`. */
 export function injectThemeAttribute(html: string, cookieValue: string | undefined): string {
-	if (cookieValue !== 'dark') return html;
-	return html.replace('<html', '<html data-theme="dark"');
+	if (cookieValue !== 'dark' && cookieValue !== 'light') return html;
+	return html.replace('<html', `<html data-theme="${cookieValue}"`);
 }
 
 /**

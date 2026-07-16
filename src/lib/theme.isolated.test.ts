@@ -12,12 +12,18 @@ describe('injectThemeAttribute', () => {
 		);
 	});
 
-	test('leaves the HTML untouched when the cookie is absent', () => {
+	test('injects data-theme="light" when the cookie says light', () => {
+		expect(injectThemeAttribute('<html lang="en">', 'light')).toBe(
+			'<html data-theme="light" lang="en">'
+		);
+	});
+
+	test('leaves the HTML untouched when the cookie is absent (auto)', () => {
 		expect(injectThemeAttribute('<html lang="en">', undefined)).toBe('<html lang="en">');
 	});
 
-	test('leaves the HTML untouched for any non-"dark" cookie value', () => {
-		expect(injectThemeAttribute('<html lang="en">', 'light')).toBe('<html lang="en">');
+	test('leaves the HTML untouched for auto or unrecognized cookie values', () => {
+		expect(injectThemeAttribute('<html lang="en">', 'auto')).toBe('<html lang="en">');
 		expect(injectThemeAttribute('<html lang="en">', 'bogus')).toBe('<html lang="en">');
 	});
 });

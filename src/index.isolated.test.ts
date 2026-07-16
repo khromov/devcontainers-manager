@@ -42,9 +42,14 @@ describe('minimal app', () => {
 		expect(await res.text()).toContain('Hello Mochi!');
 	});
 
-	test('GET / renders light theme (no data-theme attribute) with no theme cookie', async () => {
+	test('GET / renders auto theme (no data-theme attribute) with no theme cookie', async () => {
 		const res = await fetch(base);
 		expect(await res.text()).not.toContain('<html data-theme');
+	});
+
+	test('GET / renders data-theme="light" when the theme cookie is light', async () => {
+		const res = await fetch(base, { headers: { Cookie: 'theme=light' } });
+		expect(await res.text()).toContain('<html data-theme="light"');
 	});
 
 	test('GET / renders data-theme="dark" when the theme cookie is dark', async () => {

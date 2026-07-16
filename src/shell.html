@@ -5,29 +5,34 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Codebay</title>
 		<style>
+			/* Each themed variable is defined once as light-dark(light, dark). With no
+	       data-theme attribute (the "auto" mode) `color-scheme: light dark` lets the
+	       browser preference pick the value; an explicit choice pins color-scheme
+	       below, which forces every light-dark() to that side. */
 			:root {
-				--bg: #d7d8d2;
-				--bg-card: #e7e8e2;
-				--ink: #14150f;
-				--ink-soft: #45463e;
-				--ink-faint: #7d7e74;
-				--rule: #20211a;
-				--rule-soft: #b9bab2;
-				--warn-bg: #e4d98f;
-				--warn-line: #9c8729;
-				--warn-ink: #463b08;
-				--ok-bg: #8fbf6e;
-				--ok-line: #4c7a2e;
-				--ok-ink: #1c3110;
-				--danger: #b23a2e;
-				--danger-soft: #e3c6c1;
+				color-scheme: light dark;
+				--bg: light-dark(#d7d8d2, #1b1c15);
+				--bg-card: light-dark(#e7e8e2, #24261c);
+				--ink: light-dark(#14150f, #e8e9df);
+				--ink-soft: light-dark(#45463e, #b7b8a9);
+				--ink-faint: light-dark(#7d7e74, #85867a);
+				--rule: light-dark(#20211a, #46473a);
+				--rule-soft: light-dark(#b9bab2, #34352a);
+				--warn-bg: light-dark(#e4d98f, #4a3d12);
+				--warn-line: light-dark(#9c8729, #c9a83a);
+				--warn-ink: light-dark(#463b08, #f3e3a0);
+				--ok-bg: light-dark(#8fbf6e, #23421a);
+				--ok-line: light-dark(#4c7a2e, #6fa84a);
+				--ok-ink: light-dark(#1c3110, #cdeab8);
+				--danger: light-dark(#b23a2e, #e2564a);
+				--danger-soft: light-dark(#e3c6c1, #4a231e);
 				--screen-bg: #0d0e0a;
 				--screen-ink: #d8d9cf;
 				--screen-line: rgba(255, 255, 255, 0.04);
 				--attn-done: #22c55e;
 				--attn-waiting: #f59e0b;
 				--info: #388bfd;
-				--grid-line: rgba(0, 0, 0, 0.035);
+				--grid-line: light-dark(rgba(0, 0, 0, 0.035), rgba(255, 255, 255, 0.035));
 				/* --attn-done at reduced opacity — reads correctly on both themes' track color. */
 				--switch-on-bg: rgba(34, 197, 94, 0.32);
 				--font-display: 'Doto Variable', 'JetBrains Mono Variable', monospace;
@@ -36,23 +41,11 @@
 				--font-serif: var(--font-display);
 				--font-sans: var(--font-mono);
 			}
+			:root[data-theme='light'] {
+				color-scheme: light;
+			}
 			:root[data-theme='dark'] {
-				--bg: #1b1c15;
-				--bg-card: #24261c;
-				--ink: #e8e9df;
-				--ink-soft: #b7b8a9;
-				--ink-faint: #85867a;
-				--rule: #46473a;
-				--rule-soft: #34352a;
-				--warn-bg: #4a3d12;
-				--warn-line: #c9a83a;
-				--warn-ink: #f3e3a0;
-				--ok-bg: #23421a;
-				--ok-line: #6fa84a;
-				--ok-ink: #cdeab8;
-				--danger: #e2564a;
-				--danger-soft: #4a231e;
-				--grid-line: rgba(255, 255, 255, 0.035);
+				color-scheme: dark;
 			}
 			* {
 				box-sizing: border-box;
