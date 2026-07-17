@@ -60,6 +60,9 @@ const CODE_SERVER_SETTINGS = {
 	'terminal.integrated.rightClickBehavior': 'paste'
 };
 
+/** Name of the persistent tmux session the Terminal task creates or reattaches. */
+const TMUX_SESSION = 'codebay';
+
 /**
  * Auto-launches Claude Code when the workspace folder opens in code-server, then
  * drops to an interactive login shell once Claude exits so the terminal stays usable.
@@ -67,16 +70,29 @@ const CODE_SERVER_SETTINGS = {
  * throwaway single-tenant sandboxes); invoked directly here since the alias only
  * loads in interactive shells and this task's command runs non-interactively.
  *
- * Gated to the *first* open: VS Code re-runs a `folderOpen` task on every workspace
- * load (each reload/revisit), and there's no built-in run-once option, so the command
- * itself checks/creates a marker file and `exit 0`s on subsequent opens (no relaunch).
- * The marker lives in the container home dir, so it survives code-server reloads but
- * resets on a rebuild (fresh container) — the terminal then auto-launches once more.
+ * Runs inside a named tmux session (installed by the `tmux` injection) so the
+ * terminal survives the browser closing: code-server reaps a detached terminal
+ * PTY after its reconnect grace period, which only kills the tmux *client* —
+ * Claude keeps running server-side with its scrollback, and the next folderOpen
+ * reattaches (`-A` creates-or-attaches, so it doubles as the run-once gate; the
+ * create command is ignored on attach). A container restart kills the tmux
+ * server, so a fresh session relaunches Claude. `"$SHELL"` is expanded by
+ * tmux's `sh -c` at run time (CODE_SERVER_LAUNCH guarantees it's exported) —
+ * `${env:SHELL}` would be substituted by VS Code before tmux ever ran, and
+ * `${SHELL:-…}` shell syntax would trip VS Code's `${…}` variable resolver.
+ *
+ * Fallback when tmux is missing (install failed / unsupported distro): the
+ * previous marker-file behavior — VS Code re-runs a `folderOpen` task on every
+ * workspace load and has no built-in run-once option, so the command
+ * checks/creates a marker and `exit 0`s on subsequent opens. The marker lives
+ * in the container home dir, so it survives code-server reloads but resets on
+ * a rebuild (fresh container).
  */
 const TERMINAL_TASK = {
 	label: 'Terminal',
 	type: 'shell',
 	command:
+		`if command -v tmux >/dev/null 2>&1; then exec tmux new-session -A -s ${TMUX_SESSION} 'claude --dangerously-skip-permissions; exec "$SHELL" -l'; fi; ` +
 		'MARK="$HOME/.codebay-terminal-launched"; [ -e "$MARK" ] && exit 0; touch "$MARK"; ' +
 		'claude --dangerously-skip-permissions; exec ${env:SHELL} -l',
 	presentation: { reveal: 'always', panel: 'shared', focus: true },
@@ -437,8 +453,9 @@ async function writeLocalGitExclude(workspaceDir: string): Promise<void> {
 /**
  * Merge the folderOpen Terminal task into the workspace's `.vscode/tasks.json` so a usable
  * shell opens automatically in code-server. Non-destructive: preserves any existing tasks
- * and is idempotent across rebuilds. A malformed existing tasks.json is replaced rather
- * than aborting the boot.
+ * and is idempotent across rebuilds — the managed task (matched by label + folderOpen) is
+ * *replaced*, not skipped, so a rebuild picks up command changes instead of keeping a stale
+ * copy forever. A malformed existing tasks.json is replaced rather than aborting the boot.
  */
 async function writeTerminalTask(workspaceDir: string): Promise<void> {
 	const tasksPath = join(workspaceDir, '.vscode', 'tasks.json');
@@ -455,15 +472,12 @@ async function writeTerminalTask(workspaceDir: string): Promise<void> {
 	config.version = config.version ?? '2.0.0';
 	const tasks = Array.isArray(config.tasks) ? config.tasks : [];
 
-	const hasTerminalTask = tasks.some(
-		(t) =>
-			typeof t === 'object' &&
-			t !== null &&
-			(t as Record<string, unknown>).label === TERMINAL_TASK.label &&
-			((t as Record<string, { runOn?: string }>).runOptions?.runOn ?? '') === 'folderOpen'
-	);
-	if (!hasTerminalTask) tasks.push(TERMINAL_TASK);
-	config.tasks = tasks;
+	const isManagedTask = (t: unknown) =>
+		typeof t === 'object' &&
+		t !== null &&
+		(t as Record<string, unknown>).label === TERMINAL_TASK.label &&
+		((t as Record<string, { runOn?: string }>).runOptions?.runOn ?? '') === 'folderOpen';
+	config.tasks = [...tasks.filter((t) => !isManagedTask(t)), TERMINAL_TASK];
 
 	await mkdir(join(workspaceDir, '.vscode'), { recursive: true }).catch(() => {});
 	await writeFile(tasksPath, JSON.stringify(config, null, 2) + '\n', 'utf8');

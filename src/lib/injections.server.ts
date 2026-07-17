@@ -1,6 +1,7 @@
 import type { InstanceRow } from './db.server.ts';
 import type { ExecTarget } from './exec.server.ts';
 import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts';
+import { tmux } from '../container-injections/tmux.ts';
 import { gitIdentity } from '../container-injections/git-identity.ts';
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
 import { githubCredentials } from '../container-injections/github-credentials.ts';
@@ -59,6 +60,9 @@ export interface Injection {
  */
 export const injections: Injection[] = [
 	gitSafeDirectory,
+	// tmux second: the package install is the slowest injection, so starting it
+	// early shrinks the window in which a first folderOpen finds tmux missing.
+	tmux,
 	gitIdentity,
 	claudeCodeCredentials,
 	githubCredentials,

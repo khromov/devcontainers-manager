@@ -67,12 +67,28 @@ describe('writeOverrideConfig terminal task + settings', () => {
 		expect(terminal.runOptions.runOn).toBe('folderOpen');
 	});
 
-	test('gates the Terminal task to the first open via a marker file', async () => {
+	test('runs the terminal inside a persistent tmux session when available', async () => {
+		await writeOverrideConfig(dir, 8001);
+		const terminal = readTasks().tasks.find((t: { label: string }) => t.label === 'Terminal');
+		// Create-or-attach: -A doubles as the run-once gate and reattaches the live
+		// session (Claude + scrollback) after the browser reaped the previous PTY.
+		expect(terminal.command).toContain("exec tmux new-session -A -s codebay 'claude");
+		// Guarded on tmux actually being installed, and ordered before the fallback.
+		expect(terminal.command).toContain('command -v tmux');
+		expect(terminal.command.indexOf('tmux')).toBeLessThan(
+			terminal.command.indexOf('.codebay-terminal-launched')
+		);
+		// $SHELL must be left for tmux's sh -c, not VS Code's ${...} resolver.
+		expect(terminal.command).toContain('exec "$SHELL" -l');
+	});
+
+	test('falls back to the first-open marker gate when tmux is missing', async () => {
 		await writeOverrideConfig(dir, 8001);
 		const terminal = readTasks().tasks.find((t: { label: string }) => t.label === 'Terminal');
 		// folderOpen re-fires on every load; the command no-ops after the first open.
 		expect(terminal.command).toContain('.codebay-terminal-launched');
 		expect(terminal.command).toContain('exit 0');
+		expect(terminal.command).toContain('exec ${env:SHELL} -l');
 	});
 
 	test('stages task.allowAutomaticTasks in code-server settings', async () => {
@@ -105,6 +121,33 @@ describe('writeOverrideConfig terminal task + settings', () => {
 		await writeOverrideConfig(dir, 8001);
 		const terminals = readTasks().tasks.filter((t: { label: string }) => t.label === 'Terminal');
 		expect(terminals).toHaveLength(1);
+	});
+
+	test('replaces a stale Terminal task on rerun instead of keeping it', async () => {
+		mkdirSync(join(dir, '.vscode'), { recursive: true });
+		writeFileSync(
+			join(dir, '.vscode', 'tasks.json'),
+			JSON.stringify({
+				version: '2.0.0',
+				tasks: [
+					{ label: 'Build', type: 'shell', command: 'make' },
+					{
+						label: 'Terminal',
+						type: 'shell',
+						command: 'old-command-from-previous-version',
+						runOptions: { runOn: 'folderOpen' }
+					}
+				]
+			})
+		);
+		await writeOverrideConfig(dir, 8001);
+		const tasks = readTasks().tasks;
+		const terminals = tasks.filter((t: { label: string }) => t.label === 'Terminal');
+		expect(terminals).toHaveLength(1);
+		// A rebuild must pick up the current command, not keep the stale one forever.
+		expect(terminals[0].command).toContain('tmux new-session');
+		expect(terminals[0].command).not.toContain('old-command-from-previous-version');
+		expect(tasks.map((t: { label: string }) => t.label)).toContain('Build');
 	});
 
 	test('replaces a malformed tasks.json rather than throwing', async () => {

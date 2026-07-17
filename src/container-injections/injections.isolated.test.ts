@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { injections } from '../lib/injections.server.ts';
 import { attentionHookSettings } from './attention-hooks.ts';
+import { INSTALL_SCRIPT, TMUX_CONF_LINES } from './tmux.ts';
 
 describe('injection registry', () => {
 	test('every injection has a unique id', () => {
@@ -43,6 +44,40 @@ describe('injection registry', () => {
 		expect(typeof aliases!.check).toBe('function');
 		// No host dependency, so no auth chip.
 		expect(aliases!.auth).toBeUndefined();
+	});
+
+	test('tmux is registered with a health check', () => {
+		const t = injections.find((i) => i.id === 'tmux');
+		expect(t).toBeDefined();
+		expect(typeof t!.check).toBe('function');
+		// No host dependency, so no auth chip.
+		expect(t!.auth).toBeUndefined();
+	});
+
+	test('tmux runs second, right after git-safe-directory', () => {
+		// git safe.directory must stay first (later git-touching steps depend on it);
+		// tmux is next because its package install is the slowest injection and the
+		// Terminal task falls back to non-persistent mode until it lands.
+		expect(injections[0]!.id).toBe('git-safe-directory');
+		expect(injections[1]!.id).toBe('tmux');
+	});
+});
+
+describe('tmux injection scripts', () => {
+	test('install script short-circuits when tmux is already present', () => {
+		expect(INSTALL_SCRIPT.startsWith('if command -v tmux >/dev/null 2>&1; then exit 0; fi;')).toBe(
+			true
+		);
+	});
+
+	test('install script covers the supported package managers', () => {
+		for (const pm of ['apt-get', 'apk', 'dnf', 'microdnf', 'yum']) {
+			expect(INSTALL_SCRIPT).toContain(pm);
+		}
+	});
+
+	test('conf enables mouse scrollback', () => {
+		expect(TMUX_CONF_LINES).toContain('set -g mouse on');
 	});
 });
 
