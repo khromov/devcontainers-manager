@@ -55,7 +55,15 @@ Edit `src/avatars/index.ts`:
 
 **Both insertions go in alphabetical order by sprite name** — the import list and the array are both fully alphabetical today (`anchor, bear, bee, cat, cherry, ...`), and that ordering matters for readability/diffs, not behavior. Find the two neighbors the new name sorts between and insert there.
 
-## 6. Verify
+## 6. Format
+
+```sh
+bun run format
+```
+
+Run this explicitly after writing the new sprite file and editing `index.ts` — it's a `prettier --write .`, so it auto-fixes any formatting drift from the hand-edit before you move on. `bun run checks` (next step) re-runs it too, but running it here means a stray formatting fix doesn't show up disguised as a test failure.
+
+## 7. Verify
 
 ```sh
 bun run checks
@@ -63,7 +71,7 @@ bun run checks
 
 This is the real gate: `avatars.test.ts` re-checks the 8×8/charset/uniqueness rules programmatically, and typecheck/format catch anything hand-editing `index.ts` might have broken. Fix anything it flags — don't skip or weaken this step.
 
-## 7. Ship it
+## 8. Ship it
 
 Pushing a branch and opening a PR are visible, hard-to-reverse actions — **confirm with the user before this step** unless they've already made clear (e.g. "just land it", "do the whole thing") that they want the full loop run without a pause.
 
