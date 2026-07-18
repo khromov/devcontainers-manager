@@ -2,13 +2,11 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { CLAUDE_CODE_TOKEN } from '../lib/config.server.ts';
+import { CLAUDE_CODE_TOKEN, CLAUDE_KEYCHAIN_SERVICE } from '../lib/config.server.ts';
 import { getOption } from '../lib/db.server.ts';
 import { checkPresence, execInContainer, writeSecretFileScript } from '../lib/exec.server.ts';
 import { spawnCapture } from '../lib/spawn.server.ts';
 import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
-
-const KEYCHAIN_SERVICE = 'Claude Code-credentials';
 
 /**
  * A token entered by the user in Settings, or null. Only honored when the
@@ -20,10 +18,20 @@ function manualClaudeToken(): string | null {
 	return getOption('manual_claude_code_token')?.trim() || null;
 }
 
+/**
+ * Rejects credentials with no access token, and ones whose access token has already
+ * expired — an expired snapshot would otherwise get injected verbatim and leave the
+ * container looking "logged in" (file present) while `claude` inside it isn't.
+ */
 function isValid(json: string): boolean {
 	try {
-		const data = JSON.parse(json) as { claudeAiOauth?: { accessToken?: string } };
-		return Boolean(data.claudeAiOauth?.accessToken);
+		const data = JSON.parse(json) as {
+			claudeAiOauth?: { accessToken?: string; expiresAt?: number };
+		};
+		const oauth = data.claudeAiOauth;
+		if (!oauth?.accessToken) return false;
+		if (typeof oauth.expiresAt === 'number' && oauth.expiresAt <= Date.now()) return false;
+		return true;
 	} catch {
 		return false;
 	}
@@ -51,11 +59,11 @@ async function locateClaudeCredentials(): Promise<{ creds: string; source: strin
 			'security',
 			'find-generic-password',
 			'-s',
-			KEYCHAIN_SERVICE,
+			CLAUDE_KEYCHAIN_SERVICE,
 			'-w'
 		]);
 		if (out && isValid(out)) {
-			return { creds: out, source: `macOS Keychain — "${KEYCHAIN_SERVICE}"` };
+			return { creds: out, source: `macOS Keychain — "${CLAUDE_KEYCHAIN_SERVICE}"` };
 		}
 	}
 
