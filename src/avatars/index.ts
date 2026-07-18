@@ -6,6 +6,7 @@ import anchor from './anchor.ts';
 import bear from './bear.ts';
 import bee from './bee.ts';
 import bobMarley from './bob-marley.ts';
+import bunnyBody from './bunny-body.ts';
 import cat from './cat.ts';
 import catBody from './cat-body.ts';
 import cherry from './cherry.ts';
@@ -44,6 +45,7 @@ export const avatars: AvatarArt[] = [
 	bear,
 	bee,
 	bobMarley,
+	bunnyBody,
 	cat,
 	catBody,
 	cherry,
