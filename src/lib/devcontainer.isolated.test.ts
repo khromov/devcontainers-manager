@@ -150,6 +150,34 @@ describe('writeOverrideConfig terminal task + settings', () => {
 		expect(tasks.map((t: { label: string }) => t.label)).toContain('Build');
 	});
 
+	test('stages the local codebay-tmux feature and registers it in features', async () => {
+		await writeOverrideConfig(dir, 8001);
+		const meta = JSON.parse(
+			readFileSync(join(dir, '.devcontainer', 'codebay-tmux', 'devcontainer-feature.json'), 'utf8')
+		);
+		expect(meta.id).toBe('codebay-tmux');
+		const install = readFileSync(join(dir, '.devcontainer', 'codebay-tmux', 'install.sh'), 'utf8');
+		// Best-effort: the actual install runs in a subshell and the script always exits 0,
+		// so a failed install (offline build, unsupported distro) can never break the build.
+		expect(install.startsWith('#!/bin/sh\n')).toBe(true);
+		expect(install).toContain('command -v tmux');
+		expect(install.trimEnd().endsWith('exit 0')).toBe(true);
+		const config = JSON.parse(
+			readFileSync(join(dir, '.devcontainer', 'devcontainer.json'), 'utf8')
+		);
+		// Nested config form → feature path is relative to .devcontainer/.
+		expect(config.features['./codebay-tmux']).toEqual({});
+	});
+
+	test('references the tmux feature relative to a root .devcontainer.json', async () => {
+		writeFileSync(join(dir, '.devcontainer.json'), JSON.stringify({ image: 'debian' }));
+		await writeOverrideConfig(dir, 8001);
+		const config = JSON.parse(readFileSync(join(dir, '.devcontainer.json'), 'utf8'));
+		// Flat config form → path from the workspace root into .devcontainer/.
+		expect(config.features['./.devcontainer/codebay-tmux']).toEqual({});
+		expect(existsSync(join(dir, '.devcontainer', 'codebay-tmux', 'install.sh'))).toBe(true);
+	});
+
 	test('replaces a malformed tasks.json rather than throwing', async () => {
 		mkdirSync(join(dir, '.vscode'), { recursive: true });
 		writeFileSync(join(dir, '.vscode', 'tasks.json'), 'not json at all');

@@ -1,7 +1,8 @@
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { homedir } from 'node:os';
+import { INSTALL_SCRIPT as TMUX_INSTALL_SCRIPT } from '../container-injections/tmux.ts';
 import {
 	CODE_SERVER_PORT,
 	COPY_IGNORE,
@@ -26,6 +27,33 @@ const GITHUB_CLI_FEATURE = 'ghcr.io/devcontainers/features/github-cli:1';
 /** Where the override config file is staged inside the copied workspace. */
 const CODE_SERVER_SETTINGS_FILE = 'code-server-settings.json';
 
+/** Folder (under .devcontainer/) holding the staged local tmux feature. */
+const TMUX_FEATURE_DIR = 'codebay-tmux';
+
+const TMUX_FEATURE_METADATA = {
+	id: 'codebay-tmux',
+	version: '1.0.0',
+	name: 'tmux (Codebay, best-effort)',
+	description:
+		'Installs tmux at image build time so the Terminal task can run in a persistent session. Never fails the build.'
+};
+
+/**
+ * The local feature's install script. Runs at image *build* time, where network
+ * is unrestricted — containers that firewall egress after start (e.g. Claude
+ * Code's reference devcontainer) block the post-up injection's apt-get, so the
+ * build is the only reliable moment to fetch packages there. The tmux injection
+ * still runs post-up as the fallback (it short-circuits when tmux is present)
+ * and provides the health row. Best-effort by design: the install runs in a
+ * subshell and any failure is swallowed so it can never break a build.
+ */
+const TMUX_FEATURE_INSTALL =
+	'#!/bin/sh\n' +
+	'(\n' +
+	`${TMUX_INSTALL_SCRIPT}\n` +
+	') || echo "codebay-tmux: install failed (non-fatal); the manager retries after the container starts"\n' +
+	'exit 0\n';
+
 /**
  * Repo-root-anchored paths for files the manager (or the devcontainer CLI) drops into the copied
  * workspace but that the project's own .gitignore doesn't cover. Seeded into the copy's
@@ -35,6 +63,7 @@ const CODE_SERVER_SETTINGS_FILE = 'code-server-settings.json';
 const MANAGER_GIT_EXCLUDES = [
 	'/.devcontainer/code-server-settings.json',
 	'/.devcontainer/devcontainer-lock.json',
+	'/.devcontainer/codebay-tmux/',
 	'/.vscode/tasks.json'
 ];
 
@@ -321,9 +350,15 @@ export async function writeOverrideConfig(
 	// needs Node) and a `gh` binary to authorize. Projects with their own config manage their own
 	// tooling, so these are only added for the default image. The devcontainer CLI resolves install
 	// order from feature metadata.
+	// The staged local tmux feature, referenced relative to wherever the config
+	// lives (`codebay-tmux` for the nested .devcontainer/devcontainer.json form,
+	// `.devcontainer/codebay-tmux` for a root .devcontainer.json).
+	const tmuxFeatureKey = `./${relative(dirname(target), join(workspaceDir, '.devcontainer', TMUX_FEATURE_DIR))}`;
+
 	config.features = {
 		...(config.features ?? {}),
 		[CODE_SERVER_FEATURE]: { host: '0.0.0.0', port: CODE_SERVER_PORT, auth: 'none' },
+		[tmuxFeatureKey]: {},
 		...(hadConfig
 			? {}
 			: { [NODE_FEATURE]: {}, [CLAUDE_CODE_FEATURE]: {}, [GITHUB_CLI_FEATURE]: {} })
@@ -360,6 +395,8 @@ export async function writeOverrideConfig(
 		JSON.stringify(CODE_SERVER_SETTINGS, null, 2) + '\n',
 		'utf8'
 	);
+
+	await writeTmuxFeature(workspaceDir);
 
 	await writeTerminalTask(workspaceDir);
 
@@ -448,6 +485,25 @@ async function writeLocalGitExclude(workspaceDir: string): Promise<void> {
 
 	await mkdir(infoDir, { recursive: true }).catch(() => {});
 	await writeFile(excludePath, existing ? `${existing}\n\n${block}` : block, 'utf8');
+}
+
+/**
+ * Stage the local tmux feature (devcontainer-feature.json + install.sh) under
+ * `.devcontainer/codebay-tmux/`. install.sh is written executable — the build
+ * copies the folder into the image and runs the script directly.
+ */
+async function writeTmuxFeature(workspaceDir: string): Promise<void> {
+	const dir = join(workspaceDir, '.devcontainer', TMUX_FEATURE_DIR);
+	await mkdir(dir, { recursive: true }).catch(() => {});
+	await writeFile(
+		join(dir, 'devcontainer-feature.json'),
+		JSON.stringify(TMUX_FEATURE_METADATA, null, 2) + '\n',
+		'utf8'
+	);
+	const installPath = join(dir, 'install.sh');
+	await writeFile(installPath, TMUX_FEATURE_INSTALL, 'utf8');
+	// writeFile's mode only applies on creation; chmod covers rewrites too.
+	await chmod(installPath, 0o755);
 }
 
 /**

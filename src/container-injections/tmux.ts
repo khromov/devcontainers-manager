@@ -48,9 +48,16 @@ const CHECK_SCRIPT = 'command -v tmux >/dev/null 2>&1 && echo 1 || echo 0';
  * Install tmux so the IDE's auto-launched terminal can run inside a persistent
  * named session (see `TERMINAL_TASK` in devcontainer.server.ts): closing the
  * browser only detaches the tmux client, so the Claude process and its
- * scrollback survive code-server reaping the terminal PTY. Install failure is
- * non-fatal — the terminal task guards on `command -v tmux` and falls back to
- * the non-persistent marker-file behavior.
+ * scrollback survive code-server reaping the terminal PTY.
+ *
+ * The primary install happens at image build time via the staged
+ * `codebay-tmux` local feature (`writeTmuxFeature` in devcontainer.server.ts,
+ * sharing this module's INSTALL_SCRIPT) — containers that firewall egress
+ * after start can't reach package mirrors post-up. This injection is the
+ * runtime fallback (INSTALL_SCRIPT short-circuits when tmux is already
+ * present), writes the user's ~/.tmux.conf, and provides the health row.
+ * Install failure is non-fatal — the terminal task guards on `command -v tmux`
+ * and falls back to the non-persistent marker-file behavior.
  */
 export const tmux: Injection = {
 	id: 'tmux',
