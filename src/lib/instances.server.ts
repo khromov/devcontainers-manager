@@ -28,6 +28,7 @@ import {
 } from './db.server.ts';
 import {
 	dockerAvailable,
+	hostPortsInUse,
 	isRunning,
 	removeContainer,
 	startContainer,
@@ -247,12 +248,20 @@ export function streamClose(ws: ServerWebSocket<unknown>): void {
 // forever and permanently shrink the range. So we also drop any reservation older
 // than the TTL: far longer than any real allocate→insert gap, but a hard backstop
 // against leaking the range on a failed insert.
+//
+// The DB is *not* the ground truth for what's actually bound on the host, though —
+// a container can outlive its DB row (e.g. codebay restarted with a DB that lost
+// track of it, or the container was started outside codebay) and keep holding its
+// port indefinitely. So we also union in `hostPortsInUse()`, which asks Docker
+// directly what's currently published; that's the set that can actually make
+// `docker run -p` fail, independent of whatever codebay's own bookkeeping thinks.
 const RESERVATION_TTL_MS = 60_000;
 const globalForPorts = globalThis as unknown as { __codebayReservedPorts?: Map<number, number> };
 const reservedPorts: Map<number, number> = (globalForPorts.__codebayReservedPorts ??= new Map());
 
-function allocatePort(): number {
+async function allocatePort(): Promise<number> {
 	const dbPorts = new Set(usedPorts());
+	const dockerPorts = new Set(await hostPortsInUse());
 	const now = Date.now();
 	// Drop reservations that have already been persisted (now covered by the DB set)
 	// or that have aged past the TTL (their insert never landed) — either way keeping
@@ -261,7 +270,7 @@ function allocatePort(): number {
 		if (dbPorts.has(port) || now - reservedAt > RESERVATION_TTL_MS) reservedPorts.delete(port);
 	}
 	for (let port = PORT_BASE; port <= PORT_MAX; port++) {
-		if (!dbPorts.has(port) && !reservedPorts.has(port)) {
+		if (!dbPorts.has(port) && !dockerPorts.has(port) && !reservedPorts.has(port)) {
 			reservedPorts.set(port, now);
 			return port;
 		}
@@ -318,7 +327,7 @@ async function seedDeclaredPorts(row: InstanceRow): Promise<void> {
 	const existing = new Set(listForwards(row.id).map((f) => f.container_port));
 	for (const containerPort of await readDeclaredContainerPorts(row.workspace_path)) {
 		if (existing.has(containerPort)) continue;
-		const hostPort = allocatePort();
+		const hostPort = await allocatePort();
 		insertForward({
 			instance_id: row.id,
 			container_port: containerPort,
@@ -434,12 +443,13 @@ export async function createInstance(
 	}
 	const id = crypto.randomUUID();
 	const folderName = parsedRepo?.repo || basename(source) || 'workspace';
+	const hostPort = await allocatePort();
 	const row: InstanceRow = {
 		id,
 		name: uniqueName(name?.trim() || folderName),
 		source_path: source,
 		workspace_path: join(INSTANCES_DIR, id, folderName),
-		host_port: allocatePort(),
+		host_port: hostPort,
 		container_id: null,
 		remote_workspace_folder: null,
 		status: 'creating',
@@ -520,7 +530,7 @@ export function renameInstance(id: string, name: string): InstanceRow {
 }
 
 /** Allocate a host port for a new container port and persist it. Apply via `rebuildInstance`. */
-export function addForwardedPort(id: string, containerPort: number): InstanceRow {
+export async function addForwardedPort(id: string, containerPort: number): Promise<InstanceRow> {
 	const row = getInstance(id);
 	if (!row) throw new Error('Instance not found');
 	if (!Number.isInteger(containerPort) || containerPort < 1 || containerPort > 65535) {
@@ -535,7 +545,7 @@ export function addForwardedPort(id: string, containerPort: number): InstanceRow
 	insertForward({
 		instance_id: id,
 		container_port: containerPort,
-		host_port: allocatePort(),
+		host_port: await allocatePort(),
 		created_at: Date.now()
 	});
 	triggerReconcile();
