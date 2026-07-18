@@ -61,6 +61,14 @@
 	let painting = false;
 	let paintValue: number = ON;
 
+	// The non-editable bezel ring around the 8×8 paint grid — same 1-cell frame
+	// Avatar.svelte always renders around the art, shown here so users can see
+	// how their drawing will actually be framed while they're still drawing it.
+	const RING_CELLS = Array.from({ length: 100 }, (_, i) => ({
+		r: Math.floor(i / 10),
+		c: i % 10
+	})).filter(({ r, c }) => r === 0 || r === 9 || c === 0 || c === 9);
+
 	function cellAt(e: PointerEvent): number | null {
 		if (!gridEl) return null;
 		const rect = gridEl.getBoundingClientRect();
@@ -131,20 +139,26 @@
 		</div>
 
 		<div class="body">
-			<div
-				class="grid"
-				bind:this={gridEl}
-				role="img"
-				aria-label="8 by 8 pixel drawing canvas"
-				{onpointerdown}
-				{onpointermove}
-				onpointerup={stopPainting}
-				onpointercancel={stopPainting}
-				onlostpointercapture={stopPainting}
-			>
-				{#each cells as cell, i (i)}
-					<span class="cell" class:on={cell === ON}></span>
+			<div class="grid-frame">
+				{#each RING_CELLS as { r, c }, i (i)}
+					<span class="ring-cell" style="grid-row:{r + 1};grid-column:{c + 1}" aria-hidden="true"
+					></span>
 				{/each}
+				<div
+					class="grid"
+					bind:this={gridEl}
+					role="img"
+					aria-label="8 by 8 pixel drawing canvas"
+					{onpointerdown}
+					{onpointermove}
+					onpointerup={stopPainting}
+					onpointercancel={stopPainting}
+					onlostpointercapture={stopPainting}
+				>
+					{#each cells as cell, i (i)}
+						<span class="cell" class:on={cell === ON}></span>
+					{/each}
+				</div>
 			</div>
 
 			<div class="side">
@@ -249,17 +263,34 @@
 		gap: 18px;
 		padding: 18px;
 	}
+	/* The frame: a 10×10 panel matching Avatar.svelte's bezel — a grayed-out,
+	   non-editable 1-cell border ring around the 8×8 paint grid, so users can see
+	   how the extra bezel will frame their art while they're still drawing it. */
+	.grid-frame {
+		display: grid;
+		grid-template-columns: repeat(10, 32px);
+		grid-template-rows: repeat(10, 32px);
+		width: 320px;
+		height: 320px;
+		flex: none;
+		border: 1px solid var(--ink);
+		background: var(--bg);
+	}
+	.ring-cell {
+		box-sizing: border-box;
+		padding: 0 1px 1px 0;
+		background-clip: content-box;
+		background-color: var(--rule-soft);
+		opacity: 0.4; /* more muted than the paintable off cells — not part of the art */
+	}
 	/* The canvas: an 8×8 board of fat LCD cells, same palette as Avatar's panel.
 	   A stroke paints by pointer position, so cells need no individual handlers. */
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(8, 1fr);
 		grid-template-rows: repeat(8, 1fr);
-		width: 256px;
-		height: 256px;
-		flex: none;
-		border: 1px solid var(--ink);
-		background: var(--bg);
+		grid-column: 2 / 10;
+		grid-row: 2 / 10;
 		cursor: crosshair;
 		touch-action: none; /* drawing on touch shouldn't scroll the page */
 	}
