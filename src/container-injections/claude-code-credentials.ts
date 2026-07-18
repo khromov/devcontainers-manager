@@ -19,18 +19,23 @@ function manualClaudeToken(): string | null {
 }
 
 /**
- * Rejects credentials with no access token, and ones whose access token has already
- * expired — an expired snapshot would otherwise get injected verbatim and leave the
- * container looking "logged in" (file present) while `claude` inside it isn't.
+ * Rejects credentials with no access token, and ones that are unrecoverably dead —
+ * an unusable snapshot would otherwise get injected verbatim and leave the container
+ * looking "logged in" (file present) while `claude` inside it isn't. A merely-stale
+ * access token is still fine to inject: `claude` refreshes it in-container on first
+ * run as long as the refresh token hasn't also expired, so expiry is judged by the
+ * refresh token when we know its expiry, falling back to the access token's own
+ * expiry only when there's no refresh-token expiry to go on.
  */
-function isValid(json: string): boolean {
+export function isValid(json: string): boolean {
 	try {
 		const data = JSON.parse(json) as {
-			claudeAiOauth?: { accessToken?: string; expiresAt?: number };
+			claudeAiOauth?: { accessToken?: string; expiresAt?: number; refreshTokenExpiresAt?: number };
 		};
 		const oauth = data.claudeAiOauth;
 		if (!oauth?.accessToken) return false;
-		if (typeof oauth.expiresAt === 'number' && oauth.expiresAt <= Date.now()) return false;
+		const expiry = oauth.refreshTokenExpiresAt ?? oauth.expiresAt;
+		if (typeof expiry === 'number' && expiry <= Date.now()) return false;
 		return true;
 	} catch {
 		return false;
