@@ -17,6 +17,34 @@
 
 	let { onclose }: { onclose: () => void } = $props();
 
+	// Example one-word prompts for the name field; picked randomly so the
+	// hint varies each time the editor opens.
+	const NAME_PROMPTS = [
+		'dragon',
+		'unicorn',
+		'cactus',
+		'comet',
+		'pretzel',
+		'volcano',
+		'narwhal',
+		'waffle',
+		'satellite',
+		'pineapple',
+		'kraken',
+		'yeti',
+		'moose',
+		'lighthouse',
+		'toaster',
+		'hedgehog',
+		'walrus',
+		'pumpkin',
+		'jellyfish',
+		'tornado',
+		'igloo',
+		'boomerang'
+	];
+	const namePlaceholder = NAME_PROMPTS[Math.floor(Math.random() * NAME_PROMPTS.length)];
+
 	// The drawing: 64 row-major on/off cells, same shape `decode()` produces.
 	let cells = $state<number[]>(Array(ROWS * COLS).fill(OFF));
 	let avatarName = $state('');
@@ -133,7 +161,7 @@
 					<input
 						type="text"
 						bind:value={avatarName}
-						placeholder="dragon"
+						placeholder={namePlaceholder}
 						spellcheck="false"
 						autocapitalize="off"
 						autocorrect="off"
