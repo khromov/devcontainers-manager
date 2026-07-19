@@ -135,9 +135,18 @@ const CODE_SERVER_APPLY_SETTINGS =
 	`cp -f \\"$PWD/.devcontainer/${CODE_SERVER_SETTINGS_FILE}\\" ` +
 	`~/.local/share/code-server/User/settings.json 2>/dev/null;`;
 
-/** Launch code-server on every container start, idempotently, bound for host access. */
+/**
+ * Launch code-server on every container start, idempotently, bound for host access.
+ *
+ * `-lc` (login) rather than `-c`: feature-installed tools frequently live on a
+ * directory the image's baked-in `ENV PATH` omits, restored only by
+ * `/etc/profile.d` — which non-login shells skip. code-server hands its own env
+ * to every terminal it spawns, so launching it non-login left a fresh terminal
+ * tab unable to find `claude`. (The `shell-path` injection covers shells that
+ * don't descend from code-server.)
+ */
 const CODE_SERVER_LAUNCH =
-	`bash -c "${CODE_SERVER_APPLY_SETTINGS} ` +
+	`bash -lc "${CODE_SERVER_APPLY_SETTINGS} ` +
 	// Guarantee SHELL is set so the Terminal task's `exec ${env:SHELL} -l` resolves on the
 	// bare default image (which may not export it); honors the user's shell when present.
 	`export SHELL=\\"\${SHELL:-/bin/bash}\\"; ` +

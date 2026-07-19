@@ -1,6 +1,7 @@
 import type { InstanceRow } from './db.server.ts';
 import type { ExecTarget } from './exec.server.ts';
 import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts';
+import { shellPath } from '../container-injections/shell-path.ts';
 import { tmux } from '../container-injections/tmux.ts';
 import { gitIdentity } from '../container-injections/git-identity.ts';
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
@@ -60,7 +61,10 @@ export interface Injection {
  */
 export const injections: Injection[] = [
 	gitSafeDirectory,
-	// tmux second: the package install is the slowest injection, so starting it
+	// shell-path early and cheap: everything a user later types in a terminal tab
+	// (claude, node, bun) depends on the build-time PATH being back.
+	shellPath,
+	// tmux third: the package install is the slowest injection, so starting it
 	// early shrinks the window in which a first folderOpen finds tmux missing.
 	tmux,
 	gitIdentity,

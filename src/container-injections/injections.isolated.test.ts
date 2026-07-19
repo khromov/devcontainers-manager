@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { injections } from '../lib/injections.server.ts';
 import { attentionHookSettings } from './attention-hooks.ts';
 import { isValid } from './claude-code-credentials.ts';
+import { APPLY_SCRIPT as SHELL_PATH_APPLY, PATH_MARKER_START } from './shell-path.ts';
 import { INSTALL_SCRIPT, TMUX_CONF_LINES } from './tmux.ts';
 
 describe('injection registry', () => {
@@ -55,12 +56,35 @@ describe('injection registry', () => {
 		expect(t!.auth).toBeUndefined();
 	});
 
-	test('tmux runs second, right after git-safe-directory', () => {
+	test('shell-path is registered with a health check', () => {
+		const p = injections.find((i) => i.id === 'shell-path');
+		expect(p).toBeDefined();
+		expect(typeof p!.check).toBe('function');
+		// No host dependency, so no auth chip.
+		expect(p!.auth).toBeUndefined();
+	});
+
+	test('git-safe-directory, shell-path, then tmux lead the registry', () => {
 		// git safe.directory must stay first (later git-touching steps depend on it);
-		// tmux is next because its package install is the slowest injection and the
-		// Terminal task falls back to non-persistent mode until it lands.
+		// shell-path is cheap and everything shell-facing depends on it; tmux is next
+		// because its package install is the slowest injection and the Terminal task
+		// falls back to non-persistent mode until it lands.
 		expect(injections[0]!.id).toBe('git-safe-directory');
-		expect(injections[1]!.id).toBe('tmux');
+		expect(injections[1]!.id).toBe('shell-path');
+		expect(injections[2]!.id).toBe('tmux');
+	});
+});
+
+describe('shell-path injection script', () => {
+	test('emits a marker-guarded block that re-adds each login PATH entry', () => {
+		expect(SHELL_PATH_APPLY.includes(`start='${PATH_MARKER_START}'`)).toBe(true);
+		// Only writes when the marker is absent, so a re-apply adds nothing.
+		expect(SHELL_PATH_APPLY.includes('grep -qF "$start" "$f" 2>/dev/null ||')).toBe(true);
+		// Splits the login PATH and guards each entry against duplication.
+		expect(SHELL_PATH_APPLY.includes('IFS=:')).toBe(true);
+		expect(SHELL_PATH_APPLY.includes('case ":$PATH:" in *":$1:"*)')).toBe(true);
+		// Both rc files, so bash and zsh terminals agree.
+		expect(SHELL_PATH_APPLY.includes('"$h/.bashrc" "$h/.zshrc"')).toBe(true);
 	});
 });
 
