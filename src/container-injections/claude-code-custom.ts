@@ -1,0 +1,147 @@
+import { getOption } from '../lib/db.server.ts';
+import { checkPresence, execInContainer } from '../lib/exec.server.ts';
+import type { ContainerTarget, Injection } from '../lib/injections.server.ts';
+
+/**
+ * Default model IDs — mirrors the values in the reference launcher script
+ * (claude-code.sh). Users can override each in Settings → Custom endpoint.
+ */
+export const DEFAULT_OPUS_MODEL = 'eu.anthropic.claude-opus-4-8';
+export const DEFAULT_SONNET_MODEL = 'eu.anthropic.claude-sonnet-4-6';
+export const DEFAULT_HAIKU_MODEL = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+export const DEFAULT_SMALL_FAST_MODEL = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';
+export const DEFAULT_MODEL = 'opusplan';
+
+/**
+ * Read the custom-endpoint configuration from the options store. Returns null
+ * when the feature is disabled or when the required base URL / token is blank —
+ * both are skip conditions for the injection.
+ */
+export function customEndpointConfig(): {
+	baseUrl: string;
+	token: string;
+	opusModel: string;
+	sonnetModel: string;
+	haikuModel: string;
+	smallFastModel: string;
+	defaultModel: string;
+} | null {
+	if (getOption('custom_endpoint_enabled') !== '1') return null;
+	const baseUrl = getOption('custom_endpoint_base_url')?.trim() || '';
+	const token = getOption('custom_endpoint_token')?.trim() || '';
+	if (!baseUrl || !token) return null;
+	return {
+		baseUrl,
+		token,
+		opusModel: getOption('custom_endpoint_opus_model')?.trim() || DEFAULT_OPUS_MODEL,
+		sonnetModel: getOption('custom_endpoint_sonnet_model')?.trim() || DEFAULT_SONNET_MODEL,
+		haikuModel: getOption('custom_endpoint_haiku_model')?.trim() || DEFAULT_HAIKU_MODEL,
+		smallFastModel:
+			getOption('custom_endpoint_small_fast_model')?.trim() || DEFAULT_SMALL_FAST_MODEL,
+		defaultModel: getOption('custom_endpoint_model')?.trim() || DEFAULT_MODEL
+	};
+}
+
+/** Absolute path of the env file written inside the container. */
+const ENV_FILE = '~/.codebay-claude-env';
+
+/**
+ * Write the custom-endpoint env file and source it from both ~/.bashrc and
+ * ~/.zshrc, guarded so re-apply never duplicates the source line.
+ *
+ * Secret handling: the token travels in `stdin` (scrubbed $CODEBAY_STDIN, never
+ * on argv). Non-secret values (URL, model IDs) travel as `args` ($1-$7), so no
+ * manual shell-quoting / injection risk. The env file mixes secret + non-secret
+ * content, so the write line is built by hand (not `writeSecretFileScript`).
+ */
+async function injectCustomEndpoint(
+	target: ContainerTarget,
+	config: NonNullable<ReturnType<typeof customEndpointConfig>>
+): Promise<{ ok: boolean; error?: string }> {
+	// $1 = baseUrl, $2 = opusModel, $3 = sonnetModel, $4 = haikuModel,
+	// $5 = smallFastModel, $6 = defaultModel
+	// $CODEBAY_STDIN = token (scrubbed, never argv)
+	const script =
+		'set -e; f=$(eval echo "' +
+		ENV_FILE +
+		'"); ' +
+		// Write the env file with all variables; token comes from $CODEBAY_STDIN.
+		'{ ' +
+		"printf '%s\\n' " +
+		"'export DISABLE_AUTOUPDATER=1' " +
+		"'export CLAUDE_CODE_USE_BEDROCK=1' " +
+		"'export CLAUDE_CODE_SKIP_BEDROCK_AUTH=1'; " +
+		'printf \'export ANTHROPIC_BEDROCK_BASE_URL=%s\\n\' "$1"; ' +
+		'printf \'export ANTHROPIC_AUTH_TOKEN=%s\\n\' "$CODEBAY_STDIN"; ' +
+		'printf \'export ANTHROPIC_DEFAULT_OPUS_MODEL=%s\\n\' "$2"; ' +
+		'printf \'export ANTHROPIC_DEFAULT_SONNET_MODEL=%s\\n\' "$3"; ' +
+		'printf \'export ANTHROPIC_DEFAULT_HAIKU_MODEL=%s\\n\' "$4"; ' +
+		'printf \'export ANTHROPIC_SMALL_FAST_MODEL=%s\\n\' "$5"; ' +
+		'printf \'export ANTHROPIC_MODEL=%s\\n\' "$6"; ' +
+		'} > "$f"; chmod 600 "$f"; ' +
+		// Source the file from both rc files, guarded against duplicates.
+		'h=$(eval echo ~$(id -un)); src="[ -f \\"$f\\" ] && . \\"$f\\""; ' +
+		'for rc in "$h/.bashrc" "$h/.zshrc"; do ' +
+		'grep -qF "$src" "$rc" 2>/dev/null || printf \'%s\\n\' "$src" >> "$rc"; ' +
+		'done; ' +
+		// Write .claude.json to suppress the first-run wizard (honoring CLAUDE_CONFIG_DIR).
+		'h=$(eval echo ~$(id -un)); ' +
+		'cfg="${CLAUDE_CONFIG_DIR:+$CLAUDE_CONFIG_DIR/.claude.json}"; cfg="${cfg:-$h/.claude.json}"; ' +
+		'printf \'%s\' \'{"hasCompletedOnboarding":true}\' > "$cfg"; chmod 644 "$cfg"';
+
+	const res = await execInContainer(target, {
+		script,
+		stdin: config.token,
+		args: [
+			'claude-custom',
+			config.baseUrl,
+			config.opusModel,
+			config.sonnetModel,
+			config.haikuModel,
+			config.smallFastModel,
+			config.defaultModel
+		]
+	});
+	return res.ok ? { ok: true } : { ok: false, error: res.error };
+}
+
+/**
+ * Inject a custom LiteLLM / Bedrock endpoint into the container so the
+ * in-container `claude` routes through the configured gateway instead of
+ * Anthropic's default API. Skipped (with a log line) when the feature is
+ * disabled or when the base URL / token fields are blank.
+ */
+export const claudeCodeCustom: Injection = {
+	id: 'claude-code-custom',
+	label: 'LiteLLM + Bedrock',
+
+	auth: {
+		hint: 'set the LiteLLM URL + token in Settings',
+		async status() {
+			const config = customEndpointConfig();
+			return {
+				available: config !== null,
+				source: config ? config.baseUrl : null
+			};
+		}
+	},
+
+	async apply(target, log) {
+		const config = customEndpointConfig();
+		if (!config) {
+			log('⚠ LiteLLM + Bedrock not configured (base URL or token missing); skipped\n');
+			return;
+		}
+		log(`Injecting LiteLLM + Bedrock endpoint (${config.baseUrl})…\n`);
+		const result = await injectCustomEndpoint(target, config);
+		log(
+			result.ok
+				? '✓ LiteLLM + Bedrock endpoint configured in container\n'
+				: `⚠ LiteLLM + Bedrock injection failed: ${result.error}\n`
+		);
+	},
+
+	async check(target) {
+		return checkPresence(target, `f=$(eval echo "${ENV_FILE}"); [ -s "$f" ] && echo 1 || echo 0`);
+	}
+};

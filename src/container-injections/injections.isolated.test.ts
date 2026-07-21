@@ -1,12 +1,19 @@
-import { describe, expect, test } from 'bun:test';
-import { injections } from '../lib/injections.server.ts';
+import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { injections, resolveInjections } from '../lib/injections.server.ts';
+import { setOption } from '../lib/db.server.ts';
 import { attentionHookSettings } from './attention-hooks.ts';
 import { isValid } from './claude-code-credentials.ts';
+import { customEndpointConfig } from './claude-code-custom.ts';
 import { INSTALL_SCRIPT, TMUX_CONF_LINES } from './tmux.ts';
 
 describe('injection registry', () => {
 	test('every injection has a unique id', () => {
 		const ids = injections.map((i) => i.id);
+		expect(new Set(ids).size).toBe(ids.length);
+	});
+
+	test('resolveInjections returns unique ids', () => {
+		const ids = resolveInjections().map((i) => i.id);
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
@@ -93,6 +100,113 @@ describe('attentionHookSettings', () => {
 		// The token must NOT be baked into settings.json — the hooks read it from a
 		// mode-600 header file at runtime, keeping it off curl's argv (and out of ps).
 		expect(json).toContain('.bridge-header');
+	});
+});
+
+describe('resolveInjections — custom endpoint toggle', () => {
+	beforeEach(() => {
+		// Start each test with the feature off and a clean slate.
+		setOption('custom_endpoint_enabled', '0');
+		setOption('custom_endpoint_base_url', '');
+		setOption('custom_endpoint_token', '');
+	});
+
+	afterEach(() => {
+		setOption('custom_endpoint_enabled', '0');
+		setOption('custom_endpoint_base_url', '');
+		setOption('custom_endpoint_token', '');
+	});
+
+	test('uses claude-code-credentials when custom endpoint is disabled', () => {
+		const ids = resolveInjections().map((i) => i.id);
+		expect(ids).toContain('claude-code-credentials');
+		expect(ids).not.toContain('claude-code-custom');
+	});
+
+	test('uses claude-code-custom when custom endpoint is enabled', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		const ids = resolveInjections().map((i) => i.id);
+		expect(ids).toContain('claude-code-custom');
+		expect(ids).not.toContain('claude-code-credentials');
+	});
+
+	test('never includes both Claude injections at once', () => {
+		const idsOff = resolveInjections().map((i) => i.id);
+		const hasCredentials = idsOff.includes('claude-code-credentials');
+		const hasCustom = idsOff.includes('claude-code-custom');
+		expect(hasCredentials && hasCustom).toBe(false);
+
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		const idsOn = resolveInjections().map((i) => i.id);
+		const hasCredentialsOn = idsOn.includes('claude-code-credentials');
+		const hasCustomOn = idsOn.includes('claude-code-custom');
+		expect(hasCredentialsOn && hasCustomOn).toBe(false);
+	});
+});
+
+describe('customEndpointConfig', () => {
+	beforeEach(() => {
+		setOption('custom_endpoint_enabled', '0');
+		setOption('custom_endpoint_base_url', '');
+		setOption('custom_endpoint_token', '');
+	});
+
+	afterEach(() => {
+		setOption('custom_endpoint_enabled', '0');
+		setOption('custom_endpoint_base_url', '');
+		setOption('custom_endpoint_token', '');
+	});
+
+	test('returns null when disabled', () => {
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		expect(customEndpointConfig()).toBeNull();
+	});
+
+	test('returns null when enabled but base URL is blank', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_token', 'sk-test');
+		expect(customEndpointConfig()).toBeNull();
+	});
+
+	test('returns null when enabled but token is blank', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		expect(customEndpointConfig()).toBeNull();
+	});
+
+	test('returns config when fully configured', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		const config = customEndpointConfig();
+		expect(config).not.toBeNull();
+		expect(config!.baseUrl).toBe('https://litellm.example.com/bedrock');
+		expect(config!.token).toBe('sk-test');
+	});
+
+	test('falls back to module defaults when model IDs are not set', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		const config = customEndpointConfig()!;
+		expect(config.opusModel).toBe('eu.anthropic.claude-opus-4-8');
+		expect(config.sonnetModel).toBe('eu.anthropic.claude-sonnet-4-6');
+		expect(config.defaultModel).toBe('opusplan');
+	});
+
+	test('respects custom model overrides', () => {
+		setOption('custom_endpoint_enabled', '1');
+		setOption('custom_endpoint_base_url', 'https://litellm.example.com/bedrock');
+		setOption('custom_endpoint_token', 'sk-test');
+		setOption('custom_endpoint_opus_model', 'my-custom-opus');
+		const config = customEndpointConfig()!;
+		expect(config.opusModel).toBe('my-custom-opus');
+		setOption('custom_endpoint_opus_model', ''); // cleanup
 	});
 });
 
