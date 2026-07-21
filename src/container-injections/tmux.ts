@@ -20,18 +20,30 @@ export const INSTALL_SCRIPT =
 
 /**
  * Lines appended to the container user's `~/.tmux.conf`. `mouse on` makes the
- * wheel scroll tmux's own scrollback in xterm.js — the feature users actually
- * need — at the cost of tmux owning mouse selection (code-server's
- * copyOnSelection doesn't apply inside tmux); `set-clipboard on` (OSC52) keeps
- * tmux copy reaching the browser clipboard; `status off` hides the status bar
- * — the IDE terminal is a single dedicated session, so the bar only cost a
- * row. Exported for the isolated tests.
+ * wheel scroll tmux's own scrollback in xterm.js, but it also costs
+ * code-server's native `copyOnSelection` (tmux owns mouse-drag entirely —
+ * confirmed a Shift/Option-drag bypass does NOT reach code-server's xterm.js
+ * the way it would in a native terminal emulator, so that's not a usable
+ * workaround here). Its OSC52 clipboard passthrough (`set-clipboard on` +
+ * `allow-passthrough on`) doesn't help either, since code-server's terminal
+ * doesn't act on OSC52 clipboard-set at all. Rather than picking one gesture
+ * permanently, `bind m` toggles `mouse` on a keypress (prefix + m, i.e.
+ * Ctrl+b then m by default) with a status-line confirmation — flip mouse off
+ * to drag-select and let `copyOnSelection` copy to the browser clipboard,
+ * flip it back on to wheel-scroll tmux's scrollback again. `set-clipboard`/
+ * `allow-passthrough` are still worth keeping for keyboard-driven tmux
+ * copy-mode (`prefix + [ … prefix + ]`) against a host terminal that does
+ * support OSC52 (e.g. someone `docker exec`-ing in from iTerm2/kitty/WezTerm).
+ * `status off` hides the status bar — the IDE terminal is a single dedicated
+ * session, so the bar only cost a row. Exported for the isolated tests.
  */
 export const TMUX_CONF_LINES = [
 	'set -g mouse on',
 	'set -g history-limit 50000',
 	'set -g set-clipboard on',
-	'set -g status off'
+	'set -g allow-passthrough on',
+	'set -g status off',
+	'bind m set -g mouse \\; display-message "mouse: #{?mouse,on,off}"'
 ];
 
 /**
