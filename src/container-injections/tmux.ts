@@ -19,23 +19,17 @@ export const INSTALL_SCRIPT =
 	'command -v tmux >/dev/null 2>&1';
 
 /**
- * Lines appended to the container user's `~/.tmux.conf`. `mouse on` makes the
- * wheel scroll tmux's own scrollback in xterm.js, but it also costs
- * code-server's native `copyOnSelection` (tmux owns mouse-drag entirely —
- * confirmed a Shift/Option-drag bypass does NOT reach code-server's xterm.js
- * the way it would in a native terminal emulator, so that's not a usable
- * workaround here). Its OSC52 clipboard passthrough (`set-clipboard on` +
- * `allow-passthrough on`) doesn't help either, since code-server's terminal
- * doesn't act on OSC52 clipboard-set at all. Rather than picking one gesture
- * permanently, `bind m` toggles `mouse` on a keypress (prefix + m, i.e.
- * Ctrl+b then m by default) with a status-line confirmation — flip mouse off
- * to drag-select and let `copyOnSelection` copy to the browser clipboard,
- * flip it back on to wheel-scroll tmux's scrollback again. `set-clipboard`/
- * `allow-passthrough` are still worth keeping for keyboard-driven tmux
- * copy-mode (`prefix + [ … prefix + ]`) against a host terminal that does
- * support OSC52 (e.g. someone `docker exec`-ing in from iTerm2/kitty/WezTerm).
- * `status off` hides the status bar — the IDE terminal is a single dedicated
- * session, so the bar only cost a row. Exported for the isolated tests.
+ * Lines appended to the container user's `~/.tmux.conf`. `mouse on` gives
+ * wheel-scroll but costs code-server's native `copyOnSelection` (tmux owns
+ * mouse-drag; neither a Shift/Option-drag bypass nor OSC52 passthrough reaches
+ * code-server's xterm.js), so `bind m` toggles `mouse` on a keypress (prefix +
+ * m) to switch between scrolling and native drag-select/copy. This shadows
+ * tmux's default `prefix + m` (mark-pane) binding, unused here since the IDE
+ * terminal is always a single pane. `set-clipboard`/`allow-passthrough` still
+ * help keyboard-driven copy-mode against an OSC52-capable host terminal (e.g.
+ * `docker exec` from iTerm2/kitty/WezTerm). `status off` hides the status bar,
+ * which only cost a row for this single-session terminal. Exported for the
+ * isolated tests.
  */
 export const TMUX_CONF_LINES = [
 	'set -g mouse on',
