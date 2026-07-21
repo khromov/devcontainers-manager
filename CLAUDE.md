@@ -81,6 +81,6 @@ _To add one:_ create `src/container-injections/<name>.ts` exporting an `Injectio
 
 ## Mochi framework
 
-The framework is a normal npm dependency, `mochi-framework@^0.8.0` (published from `github.com/khromov/mochi`, the `packages/mochi` subdir). Bump it like any other dependency; there is no vendoring step.
+The framework is a normal npm dependency, `mochi-framework@^0.8.2` (published from `github.com/khromov/mochi`, the `packages/mochi` subdir). Bump it like any other dependency; there is no vendoring step.
 
 Two MCP servers are configured (`.mcp.json`) for reference: `mochi` (framework docs) and `bun-docs`. Consult them when working with Mochi APIs (`Mochi.page/api/ws`, hydration directives like `mochi:hydrate`) or Bun-specific APIs.

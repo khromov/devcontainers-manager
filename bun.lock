@@ -11,7 +11,7 @@
         "@lucide/svelte": "^1.21.0",
         "@zihaolam/bun-sqlite-migrations": "^1.0.3",
         "dockerode": "^5.0.1",
-        "mochi-framework": "^0.8.0",
+        "mochi-framework": "^0.8.2",
         "svelte": "^5.56.4",
         "svelte-french-toast": "^1.2.0",
       },
@@ -334,7 +334,7 @@
 
     "mkdirp-classic": ["mkdirp-classic@0.5.3", "", {}, "sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A=="],
 
-    "mochi-framework": ["mochi-framework@0.8.0", "", { "dependencies": { "@css-inline/css-inline-wasm": "^0.21.0", "@joint-ops/hitlimit-bun": "1.5.0", "@noble/ciphers": "2.2.0", "bunqueue": "^2.8.44", "chokidar": "^5.0.0", "deepmerge": "^4.3.1", "devalue": "^5.8.2", "html-entities": "^2.6.0", "ipaddr.js": "2.4.0", "magic-string": "^1.0.0", "mitt": "^3.0.1", "negotiator": "^1.0.0", "nodemailer": "^9.0.3", "svelte-shaker": "0.13.0", "zimmerframe": "^1.1.4" }, "peerDependencies": { "@tailwindcss/node": "^4.3.0", "@tailwindcss/oxide": "^4.3.0", "svelte": "^5.56.6" }, "optionalPeers": ["@tailwindcss/node", "@tailwindcss/oxide"], "bin": { "mochi-framework": "src/cli/cli.js" } }, "sha512-bAXA5CwCGZO+fGiVK+GzlgmX6gspeU8YY9A9zpjefmmnd2aNS/qUJWGt6XTShChHciUxlXyxtfHZw8LduDYVQg=="],
+    "mochi-framework": ["mochi-framework@0.8.2", "", { "dependencies": { "@css-inline/css-inline-wasm": "^0.21.0", "@joint-ops/hitlimit-bun": "1.5.0", "@noble/ciphers": "2.2.0", "bunqueue": "^2.8.44", "chokidar": "^5.0.0", "deepmerge": "^4.3.1", "devalue": "^5.8.2", "html-entities": "^2.6.0", "ipaddr.js": "2.4.0", "magic-string": "^1.0.0", "mitt": "^3.0.1", "negotiator": "^1.0.0", "nodemailer": "^9.0.3", "svelte-shaker": "0.13.0", "zimmerframe": "^1.1.4" }, "peerDependencies": { "@tailwindcss/node": "^4.3.0", "@tailwindcss/oxide": "^4.3.0", "svelte": "^5.56.6" }, "optionalPeers": ["@tailwindcss/node", "@tailwindcss/oxide"], "bin": { "mochi-framework": "src/cli/cli.js" } }, "sha512-BSosJtgN2zf+G4I54HU6maXXT92HVWR3qoT+Ss8jGQszidGf3/QEEbL+daoa2C9sFllMkwP5OFjgk57kMBfUpA=="],
 
     "mri": ["mri@1.2.0", "", {}, "sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA=="],
 
