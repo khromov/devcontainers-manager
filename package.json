@@ -54,7 +54,8 @@
 		"checks": "bun run format && bun run typecheck && bun run test",
 		"clean": "rimraf .mochi",
 		"gen:chimes": "bun scripts/gen-chimes.ts",
-		"debug:tokens": "bun scripts/debug-tokens.ts"
+		"debug:tokens": "bun scripts/debug-tokens.ts",
+		"verify:package": "bun scripts/verify-package.ts"
 	},
 	"dependencies": {
 		"@devcontainers/cli": "^0.87.0",
@@ -80,7 +81,7 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.62.1"
 	},
-	"overrides": {
+	"resolutions": {
 		"msgpackr-extract": "npm:@mochi-framework/msgpackr-extract-stub@*",
 		"svelte": "5.56.4"
 	},

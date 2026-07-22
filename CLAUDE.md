@@ -96,7 +96,10 @@ The app is published to npm as **`codebay`** and is meant to run via `bunx codeb
 
 The tarball **ships the production build** (`.mochi` is in `files`): in production Mochi serves
 static assets (the chime WAVs) only from the prebuilt manifest, so without it `/sounds/*.wav` 404s.
-`bun pm pack` honors `files` over `.gitignore`, so the gitignored `.mochi` is packed.
+Both `bun pm pack` and `npm pack` honor `files` over `.gitignore`, so the gitignored `.mochi` is
+packed. The version pins live in **`resolutions`**, not `overrides` — bun treats the two the same,
+but npm rejects an `overrides` entry that conflicts with a direct dependency (`EOVERRIDE`), which
+would break `npm publish`.
 
 **`scripts/portable-manifest.ts` is load-bearing** (chained into `bun run build`): Mochi writes
 `components[*].ssrModule` in `.mochi/manifest.json` as an _absolute_ build-machine path, and
@@ -105,10 +108,20 @@ locally silently loads _this checkout's_ SSR modules, giving two `svelte` instan
 `lifecycle_outside_component` island errors). The script rewrites build-root paths to relative and
 exits non-zero if any disk path is still absolute. Re-check it after bumping `mochi-framework`.
 
-Releases go through release-please (`.github/workflows/release-please.yml`): merging the release PR
-builds and runs `bun publish`. To smoke-test a release candidate, `bun pm pack`, install the tarball
-into a scratch project, and run it in **production** mode (dev mode chdir's into `.mochi/dev` and
-masks both the cwd and manifest issues above).
+**`bun run verify:package` (`scripts/verify-package.ts`) is the gate for all of the above**: it
+packs the tarball, installs it into a throwaway project, boots it there in **production** mode, and
+asserts the page renders, `/sounds/done.wav` is served, no island SSR errors are logged, and no
+manifest path escapes the package. Run it after touching packaging; the release workflow runs it
+right before publishing. Test in production mode only — dev mode chdir's into `.mochi/dev` and masks
+both the cwd and manifest issues.
+
+Releases go through `.github/workflows/release.yml`: release-please opens the release PR (and syncs
+`bun.lock` on its branch); merging it cuts the tag, and the `publish` job checks out **that tag**,
+typechecks, tests, builds, verifies the tarball, and runs `npm publish --provenance` (npm, not bun —
+only npm can attach provenance; it needs `id-token: write` and the `NPM_TOKEN` secret). A failed
+publish can be retried without a new version via the workflow's `workflow_dispatch` `tag` input.
+Release-please also needs "Allow GitHub Actions to create and approve pull requests" enabled in
+Settings → Actions → General, or it fails at PR creation.
 
 ## Mochi framework
 

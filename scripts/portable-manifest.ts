@@ -43,13 +43,21 @@ console.log(
 // Every field the runtime actually reads off disk must now be relative; an absolute one
 // left over (i.e. pointing outside the build root) would break on another machine, so
 // fail the build rather than shipping a manifest that only works here.
-const manifest = JSON.parse(rewritten);
+const manifest: {
+	components?: Record<string, { ssrModule?: string }>;
+	clientFiles?: Record<string, string>;
+	publicFiles?: Record<string, string>;
+	serverIslandPaths?: Record<string, string>;
+	localImageAssets?: Record<string, { diskPath?: string }>;
+	serverIslandScript?: string;
+} = JSON.parse(rewritten);
+
 const diskPaths: string[] = [
-	...Object.values(manifest.components ?? {}).map((c: any) => c.ssrModule),
+	...Object.values(manifest.components ?? {}).map((c) => c.ssrModule),
 	...Object.values(manifest.clientFiles ?? {}),
 	...Object.values(manifest.publicFiles ?? {}),
 	...Object.values(manifest.serverIslandPaths ?? {}),
-	...Object.values(manifest.localImageAssets ?? {}).map((a: any) => a.diskPath),
+	...Object.values(manifest.localImageAssets ?? {}).map((a) => a.diskPath),
 	manifest.serverIslandScript
 ].filter((p): p is string => typeof p === 'string');
 
