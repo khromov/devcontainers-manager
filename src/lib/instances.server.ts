@@ -36,7 +36,7 @@ import {
 } from './devcontainer.server.ts';
 import { clearAttention, getAttention } from './bridge.server.ts';
 import { proxyPathFor } from './proxy.server.ts';
-import { injections } from './injections.server.ts';
+import { resolveInjections } from './injections.server.ts';
 import { cloneRepo, readGitBranch } from './git.server.ts';
 import { isRepoUrl, parseRepoUrl } from './repo-url.ts';
 import { currentHealthSnapshots, stopHealthMonitor, syncHealthMonitors } from './health.server.ts';
@@ -382,7 +382,7 @@ async function provision(row: InstanceRow, opts: { noCache?: boolean } = {}): Pr
 			remoteUser: result.remoteUser,
 			instance: row
 		};
-		for (const injection of injections) {
+		for (const injection of resolveInjections()) {
 			try {
 				await injection.apply(target, (msg) => appendLog(row.id, msg));
 			} catch (err) {

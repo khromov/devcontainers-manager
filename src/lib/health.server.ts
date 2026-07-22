@@ -1,7 +1,7 @@
 import { type InstanceRow } from './db.server.ts';
 import { isRunning, publishedContainerPorts } from './docker.server.ts';
 import { broadcastHealth } from './instances.server.ts';
-import { injections } from './injections.server.ts';
+import { resolveInjections } from './injections.server.ts';
 import type { InstanceHealth } from '../types.ts';
 
 /**
@@ -52,7 +52,7 @@ async function check(row: InstanceRow): Promise<InstanceHealth> {
 		codeServerAccessible(row.host_port),
 		publishedContainerPorts(row.container_id),
 		Promise.all(
-			injections
+			resolveInjections()
 				.filter((i) => i.check)
 				.map(async (i) => ({
 					id: i.id,

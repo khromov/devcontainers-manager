@@ -8,7 +8,14 @@ import {
 } from 'mochi-framework';
 import { dockerArch, dockerAvailable, pruneBuildCache } from './lib/docker.server.ts';
 import { devcontainerCliAvailable } from './lib/devcontainer.server.ts';
-import { injections } from './lib/injections.server.ts';
+import { resolveInjections } from './lib/injections.server.ts';
+import {
+	DEFAULT_HAIKU_MODEL,
+	DEFAULT_MODEL,
+	DEFAULT_OPUS_MODEL,
+	DEFAULT_SMALL_FAST_MODEL,
+	DEFAULT_SONNET_MODEL
+} from './container-injections/claude-code-custom.ts';
 import { browse } from './lib/picker.server.ts';
 import {
 	addForwardedPort,
@@ -48,7 +55,7 @@ async function preflight() {
 		// Provider-agnostic: every injection that declares host-side auth surfaces a
 		// chip automatically, so adding an injection extends the setup UI for free.
 		Promise.all(
-			injections
+			resolveInjections()
 				.filter((i) => i.auth)
 				.map(async (i) => {
 					const status = await i.auth!.status();
@@ -126,7 +133,7 @@ export const routes: Record<string, MochiRouteValue> = {
 			if (!params.id || !getInstance(params.id)) error(404, 'Instance not found');
 			// Registry-derived count of injection-backed health checks, so the health
 			// panel's skeleton renders one row per real check before the first snapshot.
-			return { id: params.id, injectionChecks: injections.filter((i) => i.check).length };
+			return { id: params.id, injectionChecks: resolveInjections().filter((i) => i.check).length };
 		}
 	}),
 
@@ -140,7 +147,19 @@ export const routes: Record<string, MochiRouteValue> = {
 			// value itself) plus the toggle state, so the page can render placeholders.
 			manualTokensEnabled: getOption('manual_tokens_enabled') === '1',
 			githubTokenSet: !!getOption('manual_github_token'),
-			claudeTokenSet: !!getOption('manual_claude_code_token')
+			claudeTokenSet: !!getOption('manual_claude_code_token'),
+			// Custom endpoint (LiteLLM / Bedrock): toggle state, base URL (non-secret),
+			// whether the token is set (never the secret value), and model IDs prefilled
+			// from the module defaults when not yet customised.
+			customEndpointEnabled: getOption('custom_endpoint_enabled') === '1',
+			customEndpointBaseUrl: getOption('custom_endpoint_base_url') ?? '',
+			customEndpointTokenSet: !!getOption('custom_endpoint_token')?.trim(),
+			customEndpointOpusModel: getOption('custom_endpoint_opus_model') ?? DEFAULT_OPUS_MODEL,
+			customEndpointSonnetModel: getOption('custom_endpoint_sonnet_model') ?? DEFAULT_SONNET_MODEL,
+			customEndpointHaikuModel: getOption('custom_endpoint_haiku_model') ?? DEFAULT_HAIKU_MODEL,
+			customEndpointSmallFastModel:
+				getOption('custom_endpoint_small_fast_model') ?? DEFAULT_SMALL_FAST_MODEL,
+			customEndpointModel: getOption('custom_endpoint_model') ?? DEFAULT_MODEL
 		})
 	}),
 
@@ -185,6 +204,58 @@ export const routes: Record<string, MochiRouteValue> = {
 		if ('claudeToken' in body) {
 			if (typeof body.claudeToken !== 'string') throw new Error('claudeToken must be a string');
 			setOption('manual_claude_code_token', body.claudeToken.trim());
+		}
+		return { ok: true };
+	}),
+
+	// Custom LiteLLM / Bedrock endpoint settings (partial update: only the keys
+	// present in the body are written). The token is stored plaintext in the options
+	// table (same as the manual Claude token) and is never returned to the client.
+	// A blank string clears the corresponding key.
+	'/api/settings/custom-endpoint': mutationRoute('POST', async ({ request }) => {
+		const body = (await request.json().catch(() => null)) as {
+			enabled?: boolean;
+			baseUrl?: string;
+			token?: string;
+			opusModel?: string;
+			sonnetModel?: string;
+			haikuModel?: string;
+			smallFastModel?: string;
+			defaultModel?: string;
+		} | null;
+		if (!body) throw new Error('Invalid body');
+		if ('enabled' in body) {
+			if (typeof body.enabled !== 'boolean') throw new Error('enabled must be a boolean');
+			setOption('custom_endpoint_enabled', body.enabled ? '1' : '0');
+		}
+		if ('baseUrl' in body) {
+			if (typeof body.baseUrl !== 'string') throw new Error('baseUrl must be a string');
+			setOption('custom_endpoint_base_url', body.baseUrl.trim());
+		}
+		if ('token' in body) {
+			if (typeof body.token !== 'string') throw new Error('token must be a string');
+			setOption('custom_endpoint_token', body.token.trim());
+		}
+		if ('opusModel' in body) {
+			if (typeof body.opusModel !== 'string') throw new Error('opusModel must be a string');
+			setOption('custom_endpoint_opus_model', body.opusModel.trim());
+		}
+		if ('sonnetModel' in body) {
+			if (typeof body.sonnetModel !== 'string') throw new Error('sonnetModel must be a string');
+			setOption('custom_endpoint_sonnet_model', body.sonnetModel.trim());
+		}
+		if ('haikuModel' in body) {
+			if (typeof body.haikuModel !== 'string') throw new Error('haikuModel must be a string');
+			setOption('custom_endpoint_haiku_model', body.haikuModel.trim());
+		}
+		if ('smallFastModel' in body) {
+			if (typeof body.smallFastModel !== 'string')
+				throw new Error('smallFastModel must be a string');
+			setOption('custom_endpoint_small_fast_model', body.smallFastModel.trim());
+		}
+		if ('defaultModel' in body) {
+			if (typeof body.defaultModel !== 'string') throw new Error('defaultModel must be a string');
+			setOption('custom_endpoint_model', body.defaultModel.trim());
 		}
 		return { ok: true };
 	}),

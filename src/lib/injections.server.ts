@@ -1,9 +1,11 @@
 import type { InstanceRow } from './db.server.ts';
 import type { ExecTarget } from './exec.server.ts';
+import { getOption } from './db.server.ts';
 import { gitSafeDirectory } from '../container-injections/git-safe-directory.ts';
 import { tmux } from '../container-injections/tmux.ts';
 import { gitIdentity } from '../container-injections/git-identity.ts';
 import { claudeCodeCredentials } from '../container-injections/claude-code-credentials.ts';
+import { claudeCodeCustom } from '../container-injections/claude-code-custom.ts';
 import { githubCredentials } from '../container-injections/github-credentials.ts';
 import { attentionHooks } from '../container-injections/attention-hooks.ts';
 import { claudeSkipPermissions } from '../container-injections/claude-skip-permissions.ts';
@@ -52,21 +54,50 @@ export interface Injection {
 }
 
 /**
+ * Base injection list — the Claude credential injection slot is filled at
+ * runtime by `resolveInjections()` so the choice between the default OAuth
+ * injection and the custom-endpoint injection stays consistent across all
+ * consumers (boot, health, routes). Direct callers should use
+ * `resolveInjections()` rather than this array.
+ */
+const BASE_INJECTIONS_HEAD: Injection[] = [
+	gitSafeDirectory,
+	// tmux second: the package install is the slowest injection, so starting it
+	// early shrinks the window in which a first folderOpen finds tmux missing.
+	tmux,
+	gitIdentity
+];
+
+const BASE_INJECTIONS_TAIL: Injection[] = [
+	githubCredentials,
+	attentionHooks,
+	claudeSkipPermissions,
+	claudeAliases
+];
+
+/**
  * Every injection applied to a freshly-provisioned container, in apply order
  * (git safe.directory first so subsequent git-touching steps work). The boot
  * driver in `instances.server.ts` runs each `apply()`, the health monitor runs
  * each `check()`, and `routes.ts` builds the auth chips from each `auth`. Add or
  * remove an injection by editing this list.
+ *
+ * The Claude credential injection is resolved at call time so toggling the
+ * "custom endpoint" setting takes effect without restarting the server.
+ */
+export function resolveInjections(): Injection[] {
+	const claudeInjection =
+		getOption('custom_endpoint_enabled') === '1' ? claudeCodeCustom : claudeCodeCredentials;
+	return [...BASE_INJECTIONS_HEAD, claudeInjection, ...BASE_INJECTIONS_TAIL];
+}
+
+/**
+ * @deprecated Use `resolveInjections()` instead. This export is kept for
+ * backwards compatibility with tests that inspect the static registry shape.
+ * It always uses the default (OAuth) Claude injection regardless of settings.
  */
 export const injections: Injection[] = [
-	gitSafeDirectory,
-	// tmux second: the package install is the slowest injection, so starting it
-	// early shrinks the window in which a first folderOpen finds tmux missing.
-	tmux,
-	gitIdentity,
+	...BASE_INJECTIONS_HEAD,
 	claudeCodeCredentials,
-	githubCredentials,
-	attentionHooks,
-	claudeSkipPermissions,
-	claudeAliases
+	...BASE_INJECTIONS_TAIL
 ];

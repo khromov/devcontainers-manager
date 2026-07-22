@@ -25,7 +25,15 @@
 		dockerArch,
 		manualTokensEnabled,
 		githubTokenSet,
-		claudeTokenSet
+		claudeTokenSet,
+		customEndpointEnabled,
+		customEndpointBaseUrl,
+		customEndpointTokenSet,
+		customEndpointOpusModel,
+		customEndpointSonnetModel,
+		customEndpointHaikuModel,
+		customEndpointSmallFastModel,
+		customEndpointModel
 	}: {
 		defaultImage: string;
 		builtinImage: string;
@@ -34,6 +42,14 @@
 		manualTokensEnabled: boolean;
 		githubTokenSet: boolean;
 		claudeTokenSet: boolean;
+		customEndpointEnabled: boolean;
+		customEndpointBaseUrl: string;
+		customEndpointTokenSet: boolean;
+		customEndpointOpusModel: string;
+		customEndpointSonnetModel: string;
+		customEndpointHaikuModel: string;
+		customEndpointSmallFastModel: string;
+		customEndpointModel: string;
 	} = $props();
 
 	// Initialize from localStorage on the client; defaults to on during SSR.
@@ -218,6 +234,108 @@
 		}
 	}
 
+	// Custom endpoint (LiteLLM / Bedrock). Like manual tokens: the toggle persists
+	// to the DB; each field saves individually via a partial POST. The token value
+	// is never returned to the client — we only know whether it was set.
+	// svelte-ignore state_referenced_locally
+	let customEndpoint = $state(customEndpointEnabled);
+	let savingCustomToggle = $state(false);
+	let customToggleError = $state<string | null>(null);
+
+	// svelte-ignore state_referenced_locally
+	let customBaseUrl = $state(customEndpointBaseUrl);
+	let savingCustomBaseUrl = $state(false);
+	let customBaseUrlMsg = $state<string | null>(null);
+	let customBaseUrlError = $state<string | null>(null);
+
+	let customToken = $state('');
+	// svelte-ignore state_referenced_locally
+	let customTokenSaved = $state(customEndpointTokenSet);
+	let savingCustomToken = $state(false);
+	let customTokenMsg = $state<string | null>(null);
+	let customTokenError = $state<string | null>(null);
+
+	// svelte-ignore state_referenced_locally
+	let customOpusModel = $state(customEndpointOpusModel);
+	// svelte-ignore state_referenced_locally
+	let customSonnetModel = $state(customEndpointSonnetModel);
+	// svelte-ignore state_referenced_locally
+	let customHaikuModel = $state(customEndpointHaikuModel);
+	// svelte-ignore state_referenced_locally
+	let customSmallFastModel = $state(customEndpointSmallFastModel);
+	// svelte-ignore state_referenced_locally
+	let customDefaultModel = $state(customEndpointModel);
+	let savingCustomModels = $state(false);
+	let customModelsMsg = $state<string | null>(null);
+	let customModelsError = $state<string | null>(null);
+
+	async function toggleCustomEndpoint(on: boolean) {
+		customEndpoint = on;
+		customToggleError = null;
+		savingCustomToggle = true;
+		try {
+			await apiPost('/api/settings/custom-endpoint', { enabled: on });
+		} catch (err) {
+			customEndpoint = !on; // revert the optimistic flip on failure
+			customToggleError = (err as Error).message;
+		} finally {
+			savingCustomToggle = false;
+		}
+	}
+
+	async function saveCustomBaseUrl(e: Event) {
+		e.preventDefault();
+		customBaseUrlError = null;
+		customBaseUrlMsg = null;
+		savingCustomBaseUrl = true;
+		try {
+			await apiPost('/api/settings/custom-endpoint', { baseUrl: customBaseUrl.trim() });
+			customBaseUrlMsg = customBaseUrl.trim() ? 'Saved.' : 'Cleared.';
+		} catch (err) {
+			customBaseUrlError = (err as Error).message;
+		} finally {
+			savingCustomBaseUrl = false;
+		}
+	}
+
+	async function saveCustomToken(e: Event) {
+		e.preventDefault();
+		customTokenError = null;
+		customTokenMsg = null;
+		savingCustomToken = true;
+		try {
+			await apiPost('/api/settings/custom-endpoint', { token: customToken.trim() });
+			customTokenSaved = customToken.trim().length > 0;
+			customToken = '';
+			customTokenMsg = customTokenSaved ? 'Saved.' : 'Cleared.';
+		} catch (err) {
+			customTokenError = (err as Error).message;
+		} finally {
+			savingCustomToken = false;
+		}
+	}
+
+	async function saveCustomModels(e: Event) {
+		e.preventDefault();
+		customModelsError = null;
+		customModelsMsg = null;
+		savingCustomModels = true;
+		try {
+			await apiPost('/api/settings/custom-endpoint', {
+				opusModel: customOpusModel.trim(),
+				sonnetModel: customSonnetModel.trim(),
+				haikuModel: customHaikuModel.trim(),
+				smallFastModel: customSmallFastModel.trim(),
+				defaultModel: customDefaultModel.trim()
+			});
+			customModelsMsg = 'Saved.';
+		} catch (err) {
+			customModelsError = (err as Error).message;
+		} finally {
+			savingCustomModels = false;
+		}
+	}
+
 	function toggleSound(on: boolean) {
 		sound = on;
 		setSoundEnabled(on);
@@ -381,17 +499,29 @@
 			</div>
 		</section>
 
-		<section class="card">
+		<section class="card" class:disabled-card={customEndpoint}>
 			<div class="row">
 				<div class="label">
 					<KeyRound size={18} />
 					<div class="text">
-						<div class="name">Set tokens manually</div>
+						<div class="name">
+							Set tokens manually
+							{#if customEndpoint}
+								<span class="arch" title="Disabled while LiteLLM + Bedrock mode is on"
+									>disabled</span
+								>
+							{/if}
+						</div>
 						<div class="desc">
-							Provide GitHub and Claude Code tokens yourself instead of discovering them from this
-							machine. Useful on a headless server or when signed in as a different identity. A
-							token set here is injected into every new container and overrides host credential
-							discovery.
+							{#if customEndpoint}
+								Not available while LiteLLM + Bedrock mode is enabled — Claude credentials are
+								provided by the LiteLLM endpoint instead.
+							{:else}
+								Provide GitHub and Claude Code tokens yourself instead of discovering them from this
+								machine. Useful on a headless server or when signed in as a different identity. A
+								token set here is injected into every new container and overrides host credential
+								discovery.
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -399,7 +529,7 @@
 					<input
 						type="checkbox"
 						checked={manualTokens}
-						disabled={savingManualToggle}
+						disabled={savingManualToggle || customEndpoint}
 						onchange={(e) => toggleManualTokens(e.currentTarget.checked)}
 					/>
 					<span class="track"><span class="thumb"></span></span>
@@ -409,7 +539,7 @@
 				<div class="sub"><div class="msg error">{manualToggleError}</div></div>
 			{/if}
 
-			{#if manualTokens}
+			{#if manualTokens && !customEndpoint}
 				<form class="row divided token-row" onsubmit={saveGithubToken}>
 					<div class="label">
 						<div class="text">
@@ -472,6 +602,189 @@
 						<div class="msg error">{claudeError}</div>
 					{:else if claudeMsg}
 						<div class="msg ok">{claudeMsg}</div>
+					{/if}
+				</form>
+			{/if}
+		</section>
+
+		<section class="card" class:disabled-card={manualTokens}>
+			<div class="row">
+				<div class="label">
+					<KeyRound size={18} />
+					<div class="text">
+						<div class="name">
+							LiteLLM + Bedrock
+							{#if manualTokens}
+								<span class="arch" title="Disabled while Set tokens manually is on">disabled</span>
+							{/if}
+						</div>
+						<div class="desc">
+							{#if manualTokens}
+								Not available while "Set tokens manually" is enabled — these modes are mutually
+								incompatible.
+							{:else}
+								Route <code>claude</code> through a LiteLLM proxy fronting AWS Bedrock instead of Anthropic's
+								default API. When enabled, the Bedrock endpoint variables are injected into every new
+								container, host OAuth credentials are not used, and "Set tokens manually" is disabled.
+							{/if}
+						</div>
+					</div>
+				</div>
+				<label class="switch">
+					<input
+						type="checkbox"
+						checked={customEndpoint}
+						disabled={savingCustomToggle || manualTokens}
+						onchange={(e) => toggleCustomEndpoint(e.currentTarget.checked)}
+					/>
+					<span class="track"><span class="thumb"></span></span>
+				</label>
+			</div>
+			{#if customToggleError}
+				<div class="sub"><div class="msg error">{customToggleError}</div></div>
+			{/if}
+
+			{#if customEndpoint}
+				<form class="row divided token-row" onsubmit={saveCustomBaseUrl}>
+					<div class="label">
+						<div class="text">
+							<div class="name">Base URL</div>
+							<div class="desc">
+								The LiteLLM proxy endpoint, e.g.
+								<code>https://litellm.example.com/bedrock</code>. Passed as
+								<code>ANTHROPIC_BEDROCK_BASE_URL</code>.
+							</div>
+						</div>
+					</div>
+					<div class="image-controls">
+						<input
+							type="text"
+							class="image-input"
+							bind:value={customBaseUrl}
+							spellcheck="false"
+							autocapitalize="off"
+							autocorrect="off"
+							autocomplete="off"
+							placeholder="https://litellm.example.com/bedrock"
+						/>
+						<Button type="submit" disabled={savingCustomBaseUrl}>Save</Button>
+					</div>
+					{#if customBaseUrlError}
+						<div class="msg error">{customBaseUrlError}</div>
+					{:else if customBaseUrlMsg}
+						<div class="msg ok">{customBaseUrlMsg}</div>
+					{/if}
+				</form>
+
+				<form class="row divided token-row" onsubmit={saveCustomToken}>
+					<div class="label">
+						<div class="text">
+							<div class="name">Auth token</div>
+							<div class="desc">
+								Your LiteLLM API key. Passed as <code>ANTHROPIC_AUTH_TOKEN</code>. Leave blank and
+								Save to clear.
+							</div>
+						</div>
+					</div>
+					<div class="image-controls">
+						<input
+							type="password"
+							class="image-input"
+							bind:value={customToken}
+							spellcheck="false"
+							autocapitalize="off"
+							autocorrect="off"
+							autocomplete="off"
+							placeholder={customTokenSaved ? '•••••••• (saved)' : 'sk-…'}
+						/>
+						<Button type="submit" disabled={savingCustomToken}>Save</Button>
+					</div>
+					{#if customTokenError}
+						<div class="msg error">{customTokenError}</div>
+					{:else if customTokenMsg}
+						<div class="msg ok">{customTokenMsg}</div>
+					{/if}
+				</form>
+
+				<form class="row divided token-row" onsubmit={saveCustomModels}>
+					<div class="label">
+						<div class="text">
+							<div class="name">Model IDs</div>
+							<div class="desc">
+								Model aliases to use for each tier. Prefilled with defaults from the reference
+								launcher script. Leave a field as-is to keep its current value.
+							</div>
+						</div>
+					</div>
+					<div class="model-fields">
+						<label class="model-row">
+							<span class="model-label">Opus</span>
+							<input
+								type="text"
+								class="image-input"
+								bind:value={customOpusModel}
+								spellcheck="false"
+								autocapitalize="off"
+								autocorrect="off"
+								autocomplete="off"
+							/>
+						</label>
+						<label class="model-row">
+							<span class="model-label">Sonnet</span>
+							<input
+								type="text"
+								class="image-input"
+								bind:value={customSonnetModel}
+								spellcheck="false"
+								autocapitalize="off"
+								autocorrect="off"
+								autocomplete="off"
+							/>
+						</label>
+						<label class="model-row">
+							<span class="model-label">Haiku</span>
+							<input
+								type="text"
+								class="image-input"
+								bind:value={customHaikuModel}
+								spellcheck="false"
+								autocapitalize="off"
+								autocorrect="off"
+								autocomplete="off"
+							/>
+						</label>
+						<label class="model-row">
+							<span class="model-label">Small/fast</span>
+							<input
+								type="text"
+								class="image-input"
+								bind:value={customSmallFastModel}
+								spellcheck="false"
+								autocapitalize="off"
+								autocorrect="off"
+								autocomplete="off"
+							/>
+						</label>
+						<label class="model-row">
+							<span class="model-label">Default</span>
+							<input
+								type="text"
+								class="image-input"
+								bind:value={customDefaultModel}
+								spellcheck="false"
+								autocapitalize="off"
+								autocorrect="off"
+								autocomplete="off"
+							/>
+						</label>
+						<div class="model-save-row">
+							<Button type="submit" disabled={savingCustomModels}>Save models</Button>
+						</div>
+					</div>
+					{#if customModelsError}
+						<div class="msg error">{customModelsError}</div>
+					{:else if customModelsMsg}
+						<div class="msg ok">{customModelsMsg}</div>
 					{/if}
 				</form>
 			{/if}
@@ -584,6 +897,11 @@
 	}
 	.danger-card {
 		border-color: var(--danger);
+	}
+	/* Muted appearance for a card whose controls are locked by another setting. */
+	.disabled-card {
+		opacity: 0.55;
+		pointer-events: none;
 	}
 	/* Keep the action button on one line; in the flex row it would otherwise shrink and wrap. */
 	.danger-card :global(.btn) {
@@ -759,5 +1077,34 @@
 	.switch input:focus-visible + .track {
 		outline: 2px solid var(--ink);
 		outline-offset: 2px;
+	}
+	/* Model-ID fields: a stacked list of label + input pairs with a Save button below. */
+	.model-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		flex: 1;
+		min-width: 220px;
+	}
+	.model-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.model-label {
+		flex: none;
+		width: 72px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: var(--ink-soft);
+		text-align: right;
+	}
+	.model-row .image-input {
+		flex: 1;
+	}
+	.model-save-row {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 4px;
 	}
 </style>

@@ -10,7 +10,15 @@
 		dockerArch,
 		manualTokensEnabled,
 		githubTokenSet,
-		claudeTokenSet
+		claudeTokenSet,
+		customEndpointEnabled,
+		customEndpointBaseUrl,
+		customEndpointTokenSet,
+		customEndpointOpusModel,
+		customEndpointSonnetModel,
+		customEndpointHaikuModel,
+		customEndpointSmallFastModel,
+		customEndpointModel
 	}: {
 		defaultImage: string;
 		builtinImage: string;
@@ -19,6 +27,14 @@
 		manualTokensEnabled: boolean;
 		githubTokenSet: boolean;
 		claudeTokenSet: boolean;
+		customEndpointEnabled: boolean;
+		customEndpointBaseUrl: string;
+		customEndpointTokenSet: boolean;
+		customEndpointOpusModel: string;
+		customEndpointSonnetModel: string;
+		customEndpointHaikuModel: string;
+		customEndpointSmallFastModel: string;
+		customEndpointModel: string;
 	} = $props();
 </script>
 
@@ -30,5 +46,13 @@
 	{manualTokensEnabled}
 	{githubTokenSet}
 	{claudeTokenSet}
+	{customEndpointEnabled}
+	{customEndpointBaseUrl}
+	{customEndpointTokenSet}
+	{customEndpointOpusModel}
+	{customEndpointSonnetModel}
+	{customEndpointHaikuModel}
+	{customEndpointSmallFastModel}
+	{customEndpointModel}
 	mochi:hydrate
 />
